@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useState } from "react";
 import {
   searchAll,
   lastTeamEvents,
@@ -10,6 +11,7 @@ import {
   type TeamHit,
   type PlayerHit,
 } from "@/lib/sportsdb";
+import { analyzeEntity, compareEntities, type AiAnalysis, type Comparison } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -27,11 +29,16 @@ const SUGGESTIONS: Record<Sport, string[]> = {
   F1: ["Lewis Hamilton", "Max Verstappen", "Ferrari", "McLaren"],
 };
 
+type Mode = "explore" | "compare";
+
 function Index() {
+  const [mode, setMode] = useState<Mode>("explore");
   const [sport, setSport] = useState<Sport>("Cricket");
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Hit | null>(null);
+  const [slotA, setSlotA] = useState<Hit | null>(null);
+  const [slotB, setSlotB] = useState<Hit | null>(null);
 
   const { data, isFetching, error } = useQuery({
     queryKey: ["search", sport, query],
@@ -42,42 +49,65 @@ function Index() {
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    setSelected(null);
     setQuery(input.trim());
   };
 
   const quick = (q: string) => {
     setInput(q);
-    setSelected(null);
     setQuery(q);
+  };
+
+  const pickResult = (h: Hit) => {
+    if (mode === "explore") {
+      setSelected(h);
+      return;
+    }
+    if (!slotA) setSlotA(h);
+    else if (!slotB && h.id !== slotA.id) setSlotB(h);
+    else setSlotA(h);
   };
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:py-16">
-        <header className="mb-10 text-center">
+        <header className="mb-8 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs uppercase tracking-widest text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            StatArena · live sports intel
+            StatArena · AI sports intel
           </div>
           <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-6xl">
             Every <span className="text-primary">stat</span>. Every{" "}
             <span className="text-accent">story</span>.
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Search a team or player across Cricket, Tennis, and Formula 1 — history,
-            achievements, recent form, and where they stumble.
+            Explore Cricket, Tennis, and F1 — or compare two teams / players head to head with AI.
           </p>
         </header>
+
+        <div className="mx-auto mb-6 flex w-fit rounded-full border border-border bg-card p-1">
+          {(["explore", "compare"] as Mode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => {
+                setMode(m);
+                setSelected(null);
+              }}
+              className={`rounded-full px-5 py-1.5 text-sm font-medium capitalize transition ${
+                mode === m
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {m === "compare" ? "⚔ Compare" : "🔎 Explore"}
+            </button>
+          ))}
+        </div>
 
         <div className="mb-4 flex flex-wrap justify-center gap-2">
           {SPORTS.map((s) => (
             <button
               key={s.key}
-              onClick={() => {
-                setSport(s.key);
-                if (query) setQuery(query);
-              }}
+              onClick={() => setSport(s.key)}
               className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                 sport === s.key
                   ? "border-primary bg-primary text-primary-foreground"
@@ -90,11 +120,28 @@ function Index() {
           ))}
         </div>
 
+        {mode === "compare" && (
+          <CompareSlots
+            slotA={slotA}
+            slotB={slotB}
+            onClearA={() => setSlotA(null)}
+            onClearB={() => setSlotB(null)}
+            onSwap={() => {
+              setSlotA(slotB);
+              setSlotB(slotA);
+            }}
+          />
+        )}
+
         <form onSubmit={submit} className="mx-auto flex max-w-2xl gap-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`Search ${sport} — team or player...`}
+            placeholder={
+              mode === "compare"
+                ? `Search ${sport} — add to ${slotA ? "slot B" : "slot A"}...`
+                : `Search ${sport} — team or player...`
+            }
             className="flex-1 rounded-xl border border-border bg-card px-5 py-4 text-base outline-none ring-primary/30 placeholder:text-muted-foreground focus:border-primary focus:ring-2"
           />
           <button
@@ -133,22 +180,124 @@ function Index() {
             </p>
           )}
 
-          {selected ? (
-            <Detail hit={selected} onBack={() => setSelected(null)} />
+          {mode === "explore" ? (
+            selected ? (
+              <Detail hit={selected} onBack={() => setSelected(null)} />
+            ) : (
+              <ResultsGrid data={data} onPick={pickResult} />
+            )
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(data ?? []).map((h) => (
-                <ResultCard key={`${h.kind}-${h.id}`} hit={h} onOpen={() => setSelected(h)} />
-              ))}
-            </div>
+            <>
+              {slotA && slotB ? (
+                <CompareView a={slotA} b={slotB} sport={sport} />
+              ) : (
+                <ResultsGrid data={data} onPick={pickResult} pickerHint />
+              )}
+            </>
           )}
         </section>
 
         <footer className="mt-16 text-center text-xs text-muted-foreground">
-          Data via TheSportsDB · Achievements and weaknesses derived from public bios.
+          Data: TheSportsDB · Analysis: Lovable AI · For informational use.
         </footer>
       </div>
     </main>
+  );
+}
+
+function ResultsGrid({
+  data,
+  onPick,
+  pickerHint,
+}: {
+  data: Hit[] | undefined;
+  onPick: (h: Hit) => void;
+  pickerHint?: boolean;
+}) {
+  if (!data || data.length === 0) return null;
+  return (
+    <>
+      {pickerHint && (
+        <p className="mb-3 text-center text-xs text-muted-foreground">
+          Tap a result to add it to a compare slot.
+        </p>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {data.map((h) => (
+          <ResultCard key={`${h.kind}-${h.id}`} hit={h} onOpen={() => onPick(h)} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function CompareSlots({
+  slotA,
+  slotB,
+  onClearA,
+  onClearB,
+  onSwap,
+}: {
+  slotA: Hit | null;
+  slotB: Hit | null;
+  onClearA: () => void;
+  onClearB: () => void;
+  onSwap: () => void;
+}) {
+  return (
+    <div className="mx-auto mb-6 grid max-w-3xl gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+      <Slot label="A" hit={slotA} onClear={onClearA} tone="primary" />
+      <button
+        onClick={onSwap}
+        disabled={!slotA || !slotB}
+        className="mx-auto rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground disabled:opacity-40 hover:border-primary/40 hover:text-foreground"
+      >
+        ⇄ swap
+      </button>
+      <Slot label="B" hit={slotB} onClear={onClearB} tone="accent" />
+    </div>
+  );
+}
+
+function Slot({
+  label,
+  hit,
+  onClear,
+  tone,
+}: {
+  label: string;
+  hit: Hit | null;
+  onClear: () => void;
+  tone: "primary" | "accent";
+}) {
+  const ring = tone === "primary" ? "border-primary/50" : "border-accent/50";
+  if (!hit) {
+    return (
+      <div className={`flex items-center justify-center rounded-xl border-2 border-dashed ${ring} bg-card/40 px-4 py-3 text-sm text-muted-foreground`}>
+        Slot {label} — pick from results
+      </div>
+    );
+  }
+  const img = hit.kind === "team" ? hit.badge : hit.thumb;
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border ${ring} bg-card px-3 py-2`}>
+      <span className={`text-xs font-bold ${tone === "primary" ? "text-primary" : "text-accent"}`}>{label}</span>
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-secondary">
+        {img && <img src={img} alt="" className="h-full w-full object-cover" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold">{hit.name}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {hit.kind === "team" ? hit.league : hit.team ?? hit.nationality}
+        </p>
+      </div>
+      <button
+        onClick={onClear}
+        className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-destructive"
+      >
+        ✕
+      </button>
+    </div>
   );
 }
 
@@ -197,18 +346,81 @@ function Detail({ hit, onBack }: { hit: Hit; onBack: () => void }) {
   );
 }
 
-function analyzeText(text?: string) {
-  if (!text) return { achievements: [] as string[], weaknesses: [] as string[] };
-  const sentences = text.split(/(?<=[.!?])\s+/).filter((s) => s.length > 20);
-  const winKeys = /\b(won|winner|champion|title|record|award|gold|trophy|victory|debut|first|scored|century|centuries|hundred|hat-trick|grand slam|pole|podium|world cup)\b/i;
-  const badKeys = /\b(lost|injur|struggle|slump|criticis|controvers|banned|suspend|weak|defeat|poor|failed|dropped|retire|out of form)\b/i;
-  const achievements: string[] = [];
-  const weaknesses: string[] = [];
-  for (const s of sentences) {
-    if (winKeys.test(s) && achievements.length < 6) achievements.push(s.trim());
-    else if (badKeys.test(s) && weaknesses.length < 4) weaknesses.push(s.trim());
-  }
-  return { achievements, weaknesses };
+function useAiAnalysis(hit: Hit) {
+  const analyze = useServerFn(analyzeEntity);
+  return useQuery({
+    queryKey: ["ai-analysis", hit.kind, hit.id],
+    queryFn: () =>
+      analyze({
+        data: {
+          kind: hit.kind,
+          name: hit.name,
+          sport: hit.sport,
+          team: hit.kind === "player" ? hit.team : undefined,
+          nationality: hit.kind === "player" ? hit.nationality : hit.country,
+          description: hit.description,
+        },
+      }),
+    staleTime: 10 * 60_000,
+    retry: 0,
+  });
+}
+
+function AiPanel({ hit }: { hit: Hit }) {
+  const { data, isLoading, error } = useAiAnalysis(hit);
+  return (
+    <div className="mt-6 rounded-xl border border-primary/40 bg-background/40 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="rounded bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-primary">
+          AI
+        </span>
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+          Strengths & Weaknesses
+        </h3>
+      </div>
+      {isLoading && <p className="text-sm text-muted-foreground">Analyzing with AI…</p>}
+      {error && (
+        <p className="text-sm text-destructive">
+          {(error as Error).message || "AI analysis failed."}
+        </p>
+      )}
+      {data && (
+        <div className="space-y-4">
+          {data.summary && (
+            <p className="text-sm leading-relaxed text-foreground/90">{data.summary}</p>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-primary">
+                What's good
+              </p>
+              <ul className="space-y-1 text-sm">
+                {data.strengths.map((s, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-primary">▲</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-accent">
+                Where they struggle
+              </p>
+              <ul className="space-y-1 text-sm">
+                {data.weaknesses.map((w, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-accent">▼</span>
+                    <span>{w}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TeamDetail({ team }: { team: TeamHit }) {
@@ -217,7 +429,11 @@ function TeamDetail({ team }: { team: TeamHit }) {
     queryFn: () => lastTeamEvents(team.id),
     staleTime: 60_000,
   });
-  const insights = useMemo(() => analyzeText(team.description), [team.description]);
+
+  // Sort recent events present -> past
+  const sortedEvents = (events ?? [])
+    .slice()
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
   return (
     <div>
@@ -243,19 +459,24 @@ function TeamDetail({ team }: { team: TeamHit }) {
         </div>
       </div>
 
-      <Sections
-        history={team.description}
-        achievements={insights.achievements}
-        weaknesses={insights.weaknesses}
-      />
+      {team.description && (
+        <div className="mt-6 rounded-xl border border-border bg-background/40 p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            History
+          </h3>
+          <p className="text-sm leading-relaxed text-foreground/90">{team.description}</p>
+        </div>
+      )}
 
-      {events && events.length > 0 && (
+      <AiPanel hit={team} />
+
+      {sortedEvents.length > 0 && (
         <div className="mt-6">
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Recent form
+            Recent form (present → past)
           </h3>
           <ul className="divide-y divide-border rounded-xl border border-border">
-            {events.map((e) => (
+            {sortedEvents.map((e) => (
               <li key={e.id} className="flex items-center justify-between gap-3 p-3 text-sm">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{e.name}</p>
@@ -283,7 +504,6 @@ function PlayerDetail({ player }: { player: PlayerHit }) {
     queryFn: () => playerHonours(player.id),
     staleTime: 60_000,
   });
-  const insights = useMemo(() => analyzeText(player.description), [player.description]);
 
   return (
     <div>
@@ -314,18 +534,23 @@ function PlayerDetail({ player }: { player: PlayerHit }) {
         </div>
       </div>
 
-      <Sections
-        history={player.description}
-        achievements={insights.achievements}
-        weaknesses={insights.weaknesses}
-      />
+      {player.description && (
+        <div className="mt-6 rounded-xl border border-border bg-background/40 p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            History
+          </h3>
+          <p className="text-sm leading-relaxed text-foreground/90">{player.description}</p>
+        </div>
+      )}
+
+      <AiPanel hit={player} />
 
       {honours && honours.length > 0 && (
         <div className="mt-6">
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Honours
+            Achievements (present → past)
           </h3>
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ol className="grid gap-2 sm:grid-cols-2">
             {honours.map((h, i) => (
               <li
                 key={i}
@@ -333,82 +558,190 @@ function PlayerDetail({ player }: { player: PlayerHit }) {
               >
                 <span className="font-medium">🏆 {h.trophy}</span>
                 <span className="ml-2 text-xs text-muted-foreground">
-                  {[h.team, h.season].filter(Boolean).join(" · ")}
+                  {[h.season, h.team].filter(Boolean).join(" · ")}
                 </span>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       )}
     </div>
   );
 }
 
-function Sections({
-  history,
-  achievements,
-  weaknesses,
-}: {
-  history?: string;
-  achievements: string[];
-  weaknesses: string[];
-}) {
+function CompareView({ a, b, sport }: { a: Hit; b: Hit; sport: Sport }) {
+  const compareFn = useServerFn(compareEntities);
+  const mutation = useMutation({
+    mutationFn: () =>
+      compareFn({
+        data: {
+          sport,
+          a: {
+            kind: a.kind,
+            name: a.name,
+            sport: a.sport,
+            team: a.kind === "player" ? a.team : undefined,
+            nationality: a.kind === "player" ? a.nationality : a.country,
+            description: a.description,
+          },
+          b: {
+            kind: b.kind,
+            name: b.name,
+            sport: b.sport,
+            team: b.kind === "player" ? b.team : undefined,
+            nationality: b.kind === "player" ? b.nationality : b.country,
+            description: b.description,
+          },
+        },
+      }),
+  });
+
+  // auto run on entry
+  useEffect(() => {
+    mutation.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a.id, b.id]);
+
+  const c = mutation.data as Comparison | undefined;
+
   return (
-    <div className="mt-6 grid gap-4">
-      {history && (
-        <Block title="History" tone="muted">
-          <p className="text-sm leading-relaxed text-foreground/90">{history}</p>
-        </Block>
-      )}
-      {achievements.length > 0 && (
-        <Block title="Achievements" tone="primary">
-          <ul className="space-y-1.5 text-sm">
-            {achievements.map((a, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="text-primary">▲</span>
-                <span>{a}</span>
-              </li>
-            ))}
-          </ul>
-        </Block>
-      )}
-      {weaknesses.length > 0 && (
-        <Block title="Weaknesses & setbacks" tone="accent">
-          <ul className="space-y-1.5 text-sm">
-            {weaknesses.map((w, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="text-accent">▼</span>
-                <span>{w}</span>
-              </li>
-            ))}
-          </ul>
-        </Block>
-      )}
+    <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SideCard hit={a} tone="primary" />
+        <SideCard hit={b} tone="accent" />
+      </div>
+
+      <div className="mt-6 rounded-xl border border-primary/40 bg-background/40 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-primary">
+              AI
+            </span>
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+              Head-to-head analysis
+            </h3>
+          </div>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+            className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground disabled:opacity-40"
+          >
+            {mutation.isPending ? "Analyzing…" : "Re-run"}
+          </button>
+        </div>
+
+        {mutation.isPending && (
+          <p className="text-sm text-muted-foreground">Comparing with AI…</p>
+        )}
+        {mutation.error && (
+          <p className="text-sm text-destructive">
+            {(mutation.error as Error).message}
+          </p>
+        )}
+
+        {c && (
+          <div className="space-y-5">
+            {c.verdict && (
+              <p className="text-sm leading-relaxed text-foreground/90">{c.verdict}</p>
+            )}
+
+            {c.categories.length > 0 && (
+              <div className="overflow-hidden rounded-lg border border-border">
+                <div className="grid grid-cols-[1fr_2fr_2fr] bg-secondary/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <span>Category</span>
+                  <span className="text-primary">{a.name}</span>
+                  <span className="text-accent">{b.name}</span>
+                </div>
+                {c.categories.map((row, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-[1fr_2fr_2fr] border-t border-border px-3 py-2 text-sm"
+                  >
+                    <span className="pr-2 text-xs font-medium text-muted-foreground">
+                      {row.label}
+                    </span>
+                    <span
+                      className={
+                        row.edge === "a"
+                          ? "font-semibold text-primary"
+                          : "text-foreground/80"
+                      }
+                    >
+                      {row.a}
+                    </span>
+                    <span
+                      className={
+                        row.edge === "b"
+                          ? "font-semibold text-accent"
+                          : "text-foreground/80"
+                      }
+                    >
+                      {row.b}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <EdgeList title={`${a.name} edges`} items={c.aEdge} tone="primary" />
+              <EdgeList title={`${b.name} edges`} items={c.bEdge} tone="accent" />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function Block({
-  title,
-  tone,
-  children,
-}: {
-  title: string;
-  tone: "primary" | "accent" | "muted";
-  children: React.ReactNode;
-}) {
-  const border =
-    tone === "primary"
-      ? "border-primary/40"
-      : tone === "accent"
-      ? "border-accent/50"
-      : "border-border";
+function SideCard({ hit, tone }: { hit: Hit; tone: "primary" | "accent" }) {
+  const img = hit.kind === "team" ? hit.badge : hit.thumb;
+  const border = tone === "primary" ? "border-primary/50" : "border-accent/50";
+  const badgeCls =
+    tone === "primary" ? "bg-primary/20 text-primary" : "bg-accent/20 text-accent";
   return (
     <div className={`rounded-xl border ${border} bg-background/40 p-4`}>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-        {title}
-      </h3>
-      {children}
+      <div className="flex items-center gap-3">
+        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary">
+          {img && <img src={img} alt="" className="h-full w-full object-cover" />}
+        </div>
+        <div className="min-w-0">
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeCls}`}>
+            {hit.kind}
+          </span>
+          <p className="mt-1 truncate font-semibold">{hit.name}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {hit.kind === "team"
+              ? [hit.league, hit.country].filter(Boolean).join(" · ")
+              : [hit.team, hit.nationality].filter(Boolean).join(" · ")}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EdgeList({
+  title,
+  items,
+  tone,
+}: {
+  title: string;
+  items: string[];
+  tone: "primary" | "accent";
+}) {
+  const c = tone === "primary" ? "text-primary" : "text-accent";
+  return (
+    <div>
+      <p className={`mb-1 text-xs font-semibold uppercase tracking-wider ${c}`}>{title}</p>
+      <ul className="space-y-1 text-sm">
+        {items.map((s, i) => (
+          <li key={i} className="flex gap-2">
+            <span className={c}>▲</span>
+            <span>{s}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
