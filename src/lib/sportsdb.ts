@@ -133,9 +133,16 @@ export async function lastTeamEvents(teamId: string): Promise<EventItem[]> {
 
 export async function playerHonours(playerId: string): Promise<{ trophy?: string; season?: string; team?: string }[]> {
   const res = await j(`${BASE}/lookuphonours.php?id=${playerId}`).catch(() => ({ honours: null }));
-  return (res.honours ?? []).map((h: any) => ({
+  const items = (res.honours ?? []).map((h: any) => ({
     trophy: h.strHonour,
     season: h.strSeason,
     team: h.strTeam,
   }));
+  // Sort present -> past by season (extract first 4-digit year for comparison)
+  const yearOf = (s?: string) => {
+    const m = s?.match(/\d{4}/);
+    return m ? parseInt(m[0], 10) : -1;
+  };
+  items.sort((a: any, b: any) => yearOf(b.season) - yearOf(a.season));
+  return items;
 }
