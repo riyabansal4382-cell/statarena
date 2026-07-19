@@ -52,25 +52,44 @@ function Index() {
   const [sport, setSport] = useState<Sport>("Cricket");
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
+  const [showSuggest, setShowSuggest] = useState(false);
   const [selected, setSelected] = useState<Hit | null>(null);
   const [slotA, setSlotA] = useState<Hit | null>(null);
   const [slotB, setSlotB] = useState<Hit | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // Debounce input -> query for autocomplete
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(input.trim()), 220);
+    return () => clearTimeout(t);
+  }, [input]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!boxRef.current?.contains(e.target as Node)) setShowSuggest(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   const { data, isFetching, error } = useQuery({
     queryKey: ["search", sport, query],
     queryFn: () => searchAll(query, sport),
-    enabled: query.length > 0,
+    enabled: query.length > 1,
     staleTime: 60_000,
   });
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
     setQuery(input.trim());
+    setShowSuggest(false);
   };
 
   const quick = (q: string) => {
     setInput(q);
     setQuery(q);
+    setShowSuggest(false);
   };
 
   const pickResult = (h: Hit) => {
