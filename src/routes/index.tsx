@@ -1,7 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 import {
   searchAll,
   lastTeamEvents,
@@ -11,7 +20,14 @@ import {
   type TeamHit,
   type PlayerHit,
 } from "@/lib/sportsdb";
-import { analyzeEntity, compareEntities, type AiAnalysis, type Comparison } from "@/lib/ai.functions";
+import {
+  analyzeEntity,
+  compareEntities,
+  entityStats,
+  type AiAnalysis,
+  type Comparison,
+  type EntityStats,
+} from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
