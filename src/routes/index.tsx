@@ -560,6 +560,7 @@ function TeamDetail({ team }: { team: TeamHit }) {
       )}
 
       <AiPanel hit={team} />
+      <StatsCharts hit={team} />
 
       {sortedEvents.length > 0 && (
         <div className="mt-6">
