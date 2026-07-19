@@ -838,3 +838,126 @@ function EdgeList({
     </div>
   );
 }
+
+const CHART_COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--accent))",
+  "#22d3ee",
+  "#f59e0b",
+  "#a78bfa",
+  "#34d399",
+];
+
+function StatsCharts({ hit }: { hit: Hit }) {
+  const statsFn = useServerFn(entityStats);
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ["entity-stats", hit.kind, hit.id],
+    queryFn: () =>
+      statsFn({
+        data: {
+          kind: hit.kind,
+          name: hit.name,
+          sport: hit.sport,
+          team: hit.kind === "player" ? hit.team : undefined,
+          nationality: hit.kind === "player" ? hit.nationality : hit.country,
+          description: hit.description,
+        },
+      }) as Promise<EntityStats>,
+    staleTime: 15 * 60_000,
+    retry: 0,
+  });
+
+  return (
+    <div className="mt-6 rounded-xl border border-accent/40 bg-background/40 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="rounded bg-accent/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-accent">
+            AI
+          </span>
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            Career stats over time
+          </h3>
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground hover:border-accent/40 hover:text-foreground disabled:opacity-40"
+        >
+          {isFetching ? "…" : "Regenerate"}
+        </button>
+      </div>
+
+      {isLoading && (
+        <p className="text-sm text-muted-foreground">Generating career trajectory charts…</p>
+      )}
+      {error && (
+        <p className="text-sm text-destructive">
+          {(error as Error).message || "Couldn't generate stats."}
+        </p>
+      )}
+
+      {data && data.metrics.length > 0 && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {data.metrics.map((m, idx) => (
+              <div
+                key={m.key}
+                className="rounded-lg border border-border bg-card/60 p-3"
+              >
+                <div className="mb-1 flex items-baseline justify-between gap-2">
+                  <p className="text-sm font-semibold">{m.label}</p>
+                  {m.unit && (
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {m.unit}
+                    </span>
+                  )}
+                </div>
+                {m.description && (
+                  <p className="mb-2 text-xs text-muted-foreground">{m.description}</p>
+                )}
+                <div className="h-40 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={m.series} margin={{ top: 5, right: 8, bottom: 0, left: -20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="year"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tickMargin={4}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        width={40}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke={CHART_COLORS[idx % CHART_COLORS.length]}
+                        strokeWidth={2.5}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ))}
+          </div>
+          {data.notes && (
+            <p className="mt-3 text-[11px] italic text-muted-foreground">{data.notes}</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
