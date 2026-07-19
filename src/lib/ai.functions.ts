@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3-flash-preview";
+const CURRENT_DATE = "July 2026";
+const DATE_CONTEXT = `IMPORTANT: Today is ${CURRENT_DATE}. All stats, titles, rankings, records, transfers and achievements MUST reflect the state of the sport as of ${CURRENT_DATE}. Do not use outdated figures from 2023 or 2024. Include events and titles through the 2025 season and the first half of the 2026 season (e.g., 2026 Australian Open, 2026 Roland Garros, 2026 Wimbledon, 2025 & 2026 F1 seasons, 2025/26 cricket calendar). If a specific recent figure is uncertain, state it generally rather than inventing a number.`;
 
 type EntityInput = {
   kind: "team" | "player";
