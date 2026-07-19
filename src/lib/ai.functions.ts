@@ -79,8 +79,9 @@ export const analyzeEntity = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const system = `You are a sports analyst. Return concise, factual analysis as JSON only.
+${DATE_CONTEXT}
 Schema: { "summary": string (2-3 sentences), "strengths": string[] (3-5 short bullets), "weaknesses": string[] (2-4 short bullets) }.
-Base analysis on well-known public information. If unsure about a specific claim, keep it general. No preamble, JSON only.`;
+Base analysis on well-known public information current as of ${CURRENT_DATE}. If unsure about a specific claim, keep it general. No preamble, JSON only.`;
 
     const user = `Analyze this ${data.kind} in ${data.sport}:
 Name: ${data.name}
