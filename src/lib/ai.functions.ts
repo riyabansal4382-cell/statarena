@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3-flash-preview";
+const CURRENT_DATE = "July 2026";
+const DATE_CONTEXT = `IMPORTANT: Today is ${CURRENT_DATE}. All stats, titles, rankings, records, transfers and achievements MUST reflect the state of the sport as of ${CURRENT_DATE}. Do not use outdated figures from 2023 or 2024. Include events and titles through the 2025 season and the first half of the 2026 season (e.g., 2026 Australian Open, 2026 Roland Garros, 2026 Wimbledon, 2025 & 2026 F1 seasons, 2025/26 cricket calendar). If a specific recent figure is uncertain, state it generally rather than inventing a number.`;
 
 type EntityInput = {
   kind: "team" | "player";
@@ -77,8 +79,9 @@ export const analyzeEntity = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const system = `You are a sports analyst. Return concise, factual analysis as JSON only.
+${DATE_CONTEXT}
 Schema: { "summary": string (2-3 sentences), "strengths": string[] (3-5 short bullets), "weaknesses": string[] (2-4 short bullets) }.
-Base analysis on well-known public information. If unsure about a specific claim, keep it general. No preamble, JSON only.`;
+Base analysis on well-known public information current as of ${CURRENT_DATE}. If unsure about a specific claim, keep it general. No preamble, JSON only.`;
 
     const user = `Analyze this ${data.kind} in ${data.sport}:
 Name: ${data.name}
@@ -118,10 +121,11 @@ export const compareEntities = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const system = `You are a sports analyst. Compare two ${data.sport} entities objectively.
+${DATE_CONTEXT}
 Return JSON only, no preamble.
 Schema: {
-  "verdict": string (2-3 sentence overall summary),
-  "categories": [{ "label": string, "a": string, "b": string, "edge": "a"|"b"|"even" }] (4-6 rows across relevant axes like Peak performance, Consistency, Big-match record, Longevity, Style),
+  "verdict": string (2-3 sentence overall summary as of ${CURRENT_DATE}),
+  "categories": [{ "label": string, "a": string, "b": string, "edge": "a"|"b"|"even" }] (4-6 rows across relevant axes like Peak performance, Consistency, Big-match record, Longevity, Style; cell values should reference up-to-date stats through ${CURRENT_DATE}),
   "aEdge": string[] (2-4 areas where A is stronger),
   "bEdge": string[] (2-4 areas where B is stronger)
 }`;
