@@ -160,3 +160,79 @@ B: ${fmt(data.b)}`;
       bEdge: Array.isArray(parsed.bEdge) ? parsed.bEdge.slice(0, 6).map(String) : [],
     };
   });
+
+export type StatSeries = {
+  key: string;
+  label: string;
+  unit?: string;
+  description?: string;
+  series: { year: number; value: number }[];
+};
+export type EntityStats = {
+  notes: string;
+  metrics: StatSeries[];
+};
+
+export const entityStats = createServerFn({ method: "POST" })
+  .inputValidator((input: EntityInput) => {
+    if (!input?.name) throw new Error("name required");
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const sport = data.sport;
+    const metricHint =
+      sport === "Tennis"
+        ? "forehand quality, backhand quality, serve rating, return rating, movement, mental strength"
+        : sport === "Cricket"
+          ? "batting average, strike rate, bowling economy, fielding rating, form index"
+          : sport === "Motorsport" || sport === "F1"
+            ? "qualifying pace, race pace, tyre management, wet-weather skill, consistency"
+            : "overall rating, form, consistency";
+
+    const system = `You are a sports analyst producing year-by-year performance ratings.
+${DATE_CONTEXT}
+Return JSON only. Ratings are estimates on a 0-100 scale unless a natural unit exists (e.g. cricket batting average).
+For a ${data.kind}, produce 4-6 metrics covering: ${metricHint}.
+Each metric MUST include a "series" with one point per year covering the entity's meaningful career window and ending at 2026.
+For active athletes with short careers, start at their debut year. For teams, span the last ~10-15 years.
+Schema: {
+  "notes": string (1 sentence caveat that these are AI-estimated indices),
+  "metrics": [{
+    "key": string (short id),
+    "label": string (human label, e.g. "Forehand quality"),
+    "unit": string (e.g. "/100" or "avg"),
+    "description": string (1 short sentence),
+    "series": [{ "year": number, "value": number }]
+  }]
+}
+Values should reflect realistic trajectories (peaks, dips, injuries) as of ${CURRENT_DATE}. No preamble.`;
+
+    const user = `Entity: ${data.name}
+Kind: ${data.kind}
+Sport: ${sport}
+${data.team ? `Team: ${data.team}\n` : ""}${data.nationality ? `Nationality: ${data.nationality}\n` : ""}${data.description ? `Bio: ${data.description.slice(0, 1200)}\n` : ""}
+Produce year-by-year metric series through 2026.`;
+
+    const raw = await callGateway(system, user);
+    const parsed = safeJson<EntityStats>(raw, { notes: "", metrics: [] });
+    return {
+      notes: String(parsed.notes ?? ""),
+      metrics: Array.isArray(parsed.metrics)
+        ? parsed.metrics.slice(0, 8).map((m) => ({
+            key: String(m.key ?? m.label ?? "metric"),
+            label: String(m.label ?? m.key ?? "Metric"),
+            unit: m.unit ? String(m.unit) : undefined,
+            description: m.description ? String(m.description) : undefined,
+            series: Array.isArray(m.series)
+              ? m.series
+                  .map((p) => ({
+                    year: Number(p.year),
+                    value: Number(p.value),
+                  }))
+                  .filter((p) => Number.isFinite(p.year) && Number.isFinite(p.value))
+                  .sort((a, b) => a.year - b.year)
+              : [],
+          }))
+        : [],
+    };
+  });

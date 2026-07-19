@@ -1,7 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 import {
   searchAll,
   lastTeamEvents,
@@ -11,7 +20,14 @@ import {
   type TeamHit,
   type PlayerHit,
 } from "@/lib/sportsdb";
-import { analyzeEntity, compareEntities, type AiAnalysis, type Comparison } from "@/lib/ai.functions";
+import {
+  analyzeEntity,
+  compareEntities,
+  entityStats,
+  type AiAnalysis,
+  type Comparison,
+  type EntityStats,
+} from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -36,25 +52,44 @@ function Index() {
   const [sport, setSport] = useState<Sport>("Cricket");
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
+  const [showSuggest, setShowSuggest] = useState(false);
   const [selected, setSelected] = useState<Hit | null>(null);
   const [slotA, setSlotA] = useState<Hit | null>(null);
   const [slotB, setSlotB] = useState<Hit | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // Debounce input -> query for autocomplete
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(input.trim()), 220);
+    return () => clearTimeout(t);
+  }, [input]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!boxRef.current?.contains(e.target as Node)) setShowSuggest(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   const { data, isFetching, error } = useQuery({
     queryKey: ["search", sport, query],
     queryFn: () => searchAll(query, sport),
-    enabled: query.length > 0,
+    enabled: query.length > 1,
     staleTime: 60_000,
   });
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
     setQuery(input.trim());
+    setShowSuggest(false);
   };
 
   const quick = (q: string) => {
     setInput(q);
     setQuery(q);
+    setShowSuggest(false);
   };
 
   const pickResult = (h: Hit) => {
@@ -133,23 +168,79 @@ function Index() {
           />
         )}
 
-        <form onSubmit={submit} className="mx-auto flex max-w-2xl gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              mode === "compare"
-                ? `Search ${sport} — add to ${slotA ? "slot B" : "slot A"}...`
-                : `Search ${sport} — team or player...`
-            }
-            className="flex-1 rounded-xl border border-border bg-card px-5 py-4 text-base outline-none ring-primary/30 placeholder:text-muted-foreground focus:border-primary focus:ring-2"
-          />
-          <button
-            type="submit"
-            className="rounded-xl bg-primary px-6 py-4 font-semibold text-primary-foreground transition hover:opacity-90"
-          >
-            Search
-          </button>
+        <form onSubmit={submit} className="mx-auto max-w-2xl">
+          <div ref={boxRef} className="relative flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setShowSuggest(true);
+              }}
+              onFocus={() => setShowSuggest(true)}
+              placeholder={
+                mode === "compare"
+                  ? `Search ${sport} — add to ${slotA ? "slot B" : "slot A"}...`
+                  : `Search ${sport} — team or player...`
+              }
+              className="flex-1 rounded-xl border border-border bg-card px-5 py-4 text-base outline-none ring-primary/30 placeholder:text-muted-foreground focus:border-primary focus:ring-2"
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              className="rounded-xl bg-primary px-6 py-4 font-semibold text-primary-foreground transition hover:opacity-90"
+            >
+              Search
+            </button>
+
+            {showSuggest && input.trim().length > 1 && (
+              <div className="absolute left-0 right-24 top-full z-20 mt-2 max-h-80 overflow-auto rounded-xl border border-border bg-card shadow-xl">
+                {isFetching && (
+                  <div className="px-4 py-3 text-sm text-muted-foreground">Searching…</div>
+                )}
+                {!isFetching && data && data.length === 0 && (
+                  <div className="px-4 py-3 text-sm text-muted-foreground">
+                    No {sport} matches for "{input}".
+                  </div>
+                )}
+                {data?.slice(0, 8).map((h) => {
+                  const img = h.kind === "team" ? h.badge : h.thumb;
+                  const sub =
+                    h.kind === "team"
+                      ? [h.league, h.country].filter(Boolean).join(" · ")
+                      : [h.team, h.nationality].filter(Boolean).join(" · ");
+                  return (
+                    <button
+                      key={`${h.kind}-${h.id}`}
+                      type="button"
+                      onClick={() => {
+                        setInput(h.name);
+                        setShowSuggest(false);
+                        pickResult(h);
+                      }}
+                      className="flex w-full items-center gap-3 border-b border-border/60 px-3 py-2 text-left last:border-b-0 hover:bg-secondary/50"
+                    >
+                      <div className="h-9 w-9 shrink-0 overflow-hidden rounded bg-secondary">
+                        {img ? (
+                          <img src={img} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-sm">
+                            {h.kind === "team" ? "🛡️" : "👤"}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{h.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{sub}</p>
+                      </div>
+                      <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {h.kind}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </form>
 
         <div className="mx-auto mt-3 flex max-w-2xl flex-wrap gap-2">
@@ -469,6 +560,7 @@ function TeamDetail({ team }: { team: TeamHit }) {
       )}
 
       <AiPanel hit={team} />
+      <StatsCharts hit={team} />
 
       {sortedEvents.length > 0 && (
         <div className="mt-6">
@@ -544,6 +636,7 @@ function PlayerDetail({ player }: { player: PlayerHit }) {
       )}
 
       <AiPanel hit={player} />
+      <StatsCharts hit={player} />
 
       {honours && honours.length > 0 && (
         <div className="mt-6">
@@ -742,6 +835,129 @@ function EdgeList({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+const CHART_COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--accent))",
+  "#22d3ee",
+  "#f59e0b",
+  "#a78bfa",
+  "#34d399",
+];
+
+function StatsCharts({ hit }: { hit: Hit }) {
+  const statsFn = useServerFn(entityStats);
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ["entity-stats", hit.kind, hit.id],
+    queryFn: () =>
+      statsFn({
+        data: {
+          kind: hit.kind,
+          name: hit.name,
+          sport: hit.sport,
+          team: hit.kind === "player" ? hit.team : undefined,
+          nationality: hit.kind === "player" ? hit.nationality : hit.country,
+          description: hit.description,
+        },
+      }) as Promise<EntityStats>,
+    staleTime: 15 * 60_000,
+    retry: 0,
+  });
+
+  return (
+    <div className="mt-6 rounded-xl border border-accent/40 bg-background/40 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="rounded bg-accent/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-accent">
+            AI
+          </span>
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            Career stats over time
+          </h3>
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground hover:border-accent/40 hover:text-foreground disabled:opacity-40"
+        >
+          {isFetching ? "…" : "Regenerate"}
+        </button>
+      </div>
+
+      {isLoading && (
+        <p className="text-sm text-muted-foreground">Generating career trajectory charts…</p>
+      )}
+      {error && (
+        <p className="text-sm text-destructive">
+          {(error as Error).message || "Couldn't generate stats."}
+        </p>
+      )}
+
+      {data && data.metrics.length > 0 && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {data.metrics.map((m, idx) => (
+              <div
+                key={m.key}
+                className="rounded-lg border border-border bg-card/60 p-3"
+              >
+                <div className="mb-1 flex items-baseline justify-between gap-2">
+                  <p className="text-sm font-semibold">{m.label}</p>
+                  {m.unit && (
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {m.unit}
+                    </span>
+                  )}
+                </div>
+                {m.description && (
+                  <p className="mb-2 text-xs text-muted-foreground">{m.description}</p>
+                )}
+                <div className="h-40 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={m.series} margin={{ top: 5, right: 8, bottom: 0, left: -20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="year"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tickMargin={4}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        width={40}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke={CHART_COLORS[idx % CHART_COLORS.length]}
+                        strokeWidth={2.5}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ))}
+          </div>
+          {data.notes && (
+            <p className="mt-3 text-[11px] italic text-muted-foreground">{data.notes}</p>
+          )}
+        </>
+      )}
     </div>
   );
 }
