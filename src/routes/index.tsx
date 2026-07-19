@@ -168,23 +168,79 @@ function Index() {
           />
         )}
 
-        <form onSubmit={submit} className="mx-auto flex max-w-2xl gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              mode === "compare"
-                ? `Search ${sport} — add to ${slotA ? "slot B" : "slot A"}...`
-                : `Search ${sport} — team or player...`
-            }
-            className="flex-1 rounded-xl border border-border bg-card px-5 py-4 text-base outline-none ring-primary/30 placeholder:text-muted-foreground focus:border-primary focus:ring-2"
-          />
-          <button
-            type="submit"
-            className="rounded-xl bg-primary px-6 py-4 font-semibold text-primary-foreground transition hover:opacity-90"
-          >
-            Search
-          </button>
+        <form onSubmit={submit} className="mx-auto max-w-2xl">
+          <div ref={boxRef} className="relative flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setShowSuggest(true);
+              }}
+              onFocus={() => setShowSuggest(true)}
+              placeholder={
+                mode === "compare"
+                  ? `Search ${sport} — add to ${slotA ? "slot B" : "slot A"}...`
+                  : `Search ${sport} — team or player...`
+              }
+              className="flex-1 rounded-xl border border-border bg-card px-5 py-4 text-base outline-none ring-primary/30 placeholder:text-muted-foreground focus:border-primary focus:ring-2"
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              className="rounded-xl bg-primary px-6 py-4 font-semibold text-primary-foreground transition hover:opacity-90"
+            >
+              Search
+            </button>
+
+            {showSuggest && input.trim().length > 1 && (
+              <div className="absolute left-0 right-24 top-full z-20 mt-2 max-h-80 overflow-auto rounded-xl border border-border bg-card shadow-xl">
+                {isFetching && (
+                  <div className="px-4 py-3 text-sm text-muted-foreground">Searching…</div>
+                )}
+                {!isFetching && data && data.length === 0 && (
+                  <div className="px-4 py-3 text-sm text-muted-foreground">
+                    No {sport} matches for "{input}".
+                  </div>
+                )}
+                {data?.slice(0, 8).map((h) => {
+                  const img = h.kind === "team" ? h.badge : h.thumb;
+                  const sub =
+                    h.kind === "team"
+                      ? [h.league, h.country].filter(Boolean).join(" · ")
+                      : [h.team, h.nationality].filter(Boolean).join(" · ");
+                  return (
+                    <button
+                      key={`${h.kind}-${h.id}`}
+                      type="button"
+                      onClick={() => {
+                        setInput(h.name);
+                        setShowSuggest(false);
+                        pickResult(h);
+                      }}
+                      className="flex w-full items-center gap-3 border-b border-border/60 px-3 py-2 text-left last:border-b-0 hover:bg-secondary/50"
+                    >
+                      <div className="h-9 w-9 shrink-0 overflow-hidden rounded bg-secondary">
+                        {img ? (
+                          <img src={img} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-sm">
+                            {h.kind === "team" ? "🛡️" : "👤"}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{h.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{sub}</p>
+                      </div>
+                      <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {h.kind}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </form>
 
         <div className="mx-auto mt-3 flex max-w-2xl flex-wrap gap-2">
