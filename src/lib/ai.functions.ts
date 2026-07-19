@@ -121,10 +121,11 @@ export const compareEntities = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const system = `You are a sports analyst. Compare two ${data.sport} entities objectively.
+${DATE_CONTEXT}
 Return JSON only, no preamble.
 Schema: {
-  "verdict": string (2-3 sentence overall summary),
-  "categories": [{ "label": string, "a": string, "b": string, "edge": "a"|"b"|"even" }] (4-6 rows across relevant axes like Peak performance, Consistency, Big-match record, Longevity, Style),
+  "verdict": string (2-3 sentence overall summary as of ${CURRENT_DATE}),
+  "categories": [{ "label": string, "a": string, "b": string, "edge": "a"|"b"|"even" }] (4-6 rows across relevant axes like Peak performance, Consistency, Big-match record, Longevity, Style; cell values should reference up-to-date stats through ${CURRENT_DATE}),
   "aEdge": string[] (2-4 areas where A is stronger),
   "bEdge": string[] (2-4 areas where B is stronger)
 }`;
