@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -24,9 +26,11 @@ import {
   analyzeEntity,
   compareEntities,
   entityStats,
+  analyzeEvent,
   type AiAnalysis,
   type Comparison,
   type EntityStats,
+  type EventAnalysis,
 } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/")({
