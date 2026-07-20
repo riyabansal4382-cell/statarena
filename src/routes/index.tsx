@@ -49,6 +49,15 @@ const SUGGESTIONS: Record<Sport, string[]> = {
   F1: ["Lewis Hamilton", "Max Verstappen", "Ferrari", "McLaren"],
 };
 
+const EVENT_SUGGESTIONS: Record<Sport, string[]> = {
+  Cricket: ["IPL 2025", "ICC T20 World Cup 2024", "The Ashes 2023", "Cricket World Cup 2023"],
+  Tennis: ["Wimbledon 2025", "US Open 2025", "Australian Open 2026", "Roland Garros 2025"],
+  F1: ["Monaco GP 2025", "British GP 2025", "Abu Dhabi GP 2025", "Bahrain GP 2026"],
+};
+
+// Rough heuristic: does this query look like an event name?
+const EVENT_HINTS = /\b(cup|open|championship|series|league|grand prix|gp|final|test|masters|ashes|olympi|world|trophy|ipl|bbl|psl|t20|odi|slam|wimbledon|roland|20\d\d)\b/i;
+
 type Mode = "explore" | "compare";
 
 function Index() {
