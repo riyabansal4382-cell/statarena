@@ -236,3 +236,118 @@ Produce year-by-year metric series through 2026.`;
         : [],
     };
   });
+
+export type EventStat = { label: string; value: string };
+export type EventPerformer = { name: string; role?: string; stat: string };
+export type EventChart = {
+  key: string;
+  label: string;
+  unit?: string;
+  description?: string;
+  series: { label: string; value: number }[];
+};
+export type EventAnalysis = {
+  title: string;
+  dateRange: string;
+  venue?: string;
+  overview: string;
+  winner?: string;
+  runnersUp?: string[];
+  keyStats: EventStat[];
+  topPerformers: EventPerformer[];
+  highlights: string[];
+  charts: EventChart[];
+  notes?: string;
+};
+
+type EventInput = { sport: string; name: string };
+
+export const analyzeEvent = createServerFn({ method: "POST" })
+  .inputValidator((input: EventInput) => {
+    if (!input?.name?.trim()) throw new Error("event name required");
+    return {
+      sport: (input.sport ?? "").slice(0, 40),
+      name: input.name.slice(0, 160).trim(),
+    };
+  })
+  .handler(async ({ data }) => {
+    const chartHint =
+      data.sport === "Tennis"
+        ? 'e.g. aces per top-4 player, sets dropped by champion, first-serve % of finalists'
+        : data.sport === "Cricket"
+          ? 'e.g. top run-scorers, top wicket-takers, team net run rates'
+          : data.sport === "F1" || data.sport === "Motorsport"
+            ? 'e.g. lap times of top drivers, points scored by top drivers, fastest sector splits'
+            : 'top performers vs key metric';
+
+    const system = `You are a sports analyst producing a factual event dossier as JSON only.
+${DATE_CONTEXT}
+Return concise, accurate stats for a specific sporting event. Prefer well-known public info; if a figure is uncertain, keep it general (avoid inventing exact numbers).
+Schema: {
+  "title": string (canonical event title),
+  "dateRange": string (e.g. "27 May – 9 Jun 2024"),
+  "venue": string,
+  "overview": string (2-3 sentence recap),
+  "winner": string,
+  "runnersUp": string[] (0-3),
+  "keyStats": [{ "label": string, "value": string }] (4-8 rows: match count, prize money, records, attendance, etc),
+  "topPerformers": [{ "name": string, "role": string, "stat": string }] (3-6 rows),
+  "highlights": string[] (3-6 short bullets of notable moments),
+  "charts": [{
+    "key": string,
+    "label": string,
+    "unit": string,
+    "description": string,
+    "series": [{ "label": string, "value": number }]
+  }] (2-3 chart-friendly bar series, ${chartHint}),
+  "notes": string (1 sentence caveat)
+}`;
+
+    const user = `Sport: ${data.sport}
+Event: ${data.name}
+Produce the event dossier. If the exact edition is ambiguous, cover the most recent completed edition as of ${CURRENT_DATE}.`;
+
+    const raw = await callGateway(system, user);
+    const parsed = safeJson<EventAnalysis>(raw, {
+      title: data.name,
+      dateRange: "",
+      overview: "",
+      keyStats: [],
+      topPerformers: [],
+      highlights: [],
+      charts: [],
+    });
+    return {
+      title: String(parsed.title ?? data.name),
+      dateRange: String(parsed.dateRange ?? ""),
+      venue: parsed.venue ? String(parsed.venue) : undefined,
+      overview: String(parsed.overview ?? ""),
+      winner: parsed.winner ? String(parsed.winner) : undefined,
+      runnersUp: Array.isArray(parsed.runnersUp) ? parsed.runnersUp.slice(0, 4).map(String) : [],
+      keyStats: Array.isArray(parsed.keyStats)
+        ? parsed.keyStats.slice(0, 10).map((s) => ({ label: String(s.label ?? ""), value: String(s.value ?? "") }))
+        : [],
+      topPerformers: Array.isArray(parsed.topPerformers)
+        ? parsed.topPerformers.slice(0, 8).map((p) => ({
+            name: String(p.name ?? ""),
+            role: p.role ? String(p.role) : undefined,
+            stat: String(p.stat ?? ""),
+          }))
+        : [],
+      highlights: Array.isArray(parsed.highlights) ? parsed.highlights.slice(0, 8).map(String) : [],
+      charts: Array.isArray(parsed.charts)
+        ? parsed.charts.slice(0, 4).map((c) => ({
+            key: String(c.key ?? c.label ?? "chart"),
+            label: String(c.label ?? "Chart"),
+            unit: c.unit ? String(c.unit) : undefined,
+            description: c.description ? String(c.description) : undefined,
+            series: Array.isArray(c.series)
+              ? c.series
+                  .map((p) => ({ label: String(p.label ?? ""), value: Number(p.value) }))
+                  .filter((p) => p.label && Number.isFinite(p.value))
+              : [],
+          }))
+        : [],
+      notes: parsed.notes ? String(parsed.notes) : undefined,
+    };
+  });
