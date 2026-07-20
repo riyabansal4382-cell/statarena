@@ -140,6 +140,7 @@ function Index() {
               onClick={() => {
                 setMode(m);
                 setSelected(null);
+                setSelectedEvent(null);
               }}
               className={`rounded-full px-5 py-1.5 text-sm font-medium capitalize transition ${
                 mode === m
