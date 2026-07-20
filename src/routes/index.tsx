@@ -258,7 +258,7 @@ function Index() {
         </form>
 
         <div className="mx-auto mt-3 flex max-w-2xl flex-wrap gap-2">
-          <span className="text-xs text-muted-foreground">Try:</span>
+          <span className="text-xs text-muted-foreground">Players/teams:</span>
           {SUGGESTIONS[sport].map((s) => (
             <button
               key={s}
@@ -266,6 +266,26 @@ function Index() {
               className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground"
             >
               {s}
+            </button>
+          ))}
+        </div>
+        <div className="mx-auto mt-2 flex max-w-2xl flex-wrap gap-2">
+          <span className="text-xs text-muted-foreground">Events:</span>
+          {EVENT_SUGGESTIONS[sport].map((s) => (
+            <button
+              key={s}
+              onClick={() => {
+                setInput(s);
+                setQuery(s);
+                setShowSuggest(false);
+                if (mode === "explore") {
+                  setSelected(null);
+                  setSelectedEvent(s);
+                }
+              }}
+              className="rounded-full border border-accent/40 px-3 py-1 text-xs text-accent/90 hover:border-accent hover:text-accent"
+            >
+              🏆 {s}
             </button>
           ))}
         </div>
@@ -279,17 +299,42 @@ function Index() {
           {isFetching && (
             <p className="text-center text-muted-foreground">Searching {sport}…</p>
           )}
-          {!isFetching && query && data && data.length === 0 && (
-            <p className="text-center text-muted-foreground">
-              No {sport} results for "{query}".
-            </p>
-          )}
 
           {mode === "explore" ? (
-            selected ? (
+            selectedEvent ? (
+              <EventDetail
+                sport={sport}
+                name={selectedEvent}
+                onBack={() => setSelectedEvent(null)}
+              />
+            ) : selected ? (
               <Detail hit={selected} onBack={() => setSelected(null)} />
             ) : (
-              <ResultsGrid data={data} onPick={pickResult} />
+              <>
+                {query.length > 1 && EVENT_HINTS.test(query) && (
+                  <button
+                    onClick={() => setSelectedEvent(query)}
+                    className="mb-3 flex w-full items-center gap-3 rounded-xl border border-accent/40 bg-accent/5 p-4 text-left transition hover:border-accent"
+                  >
+                    <span className="text-2xl">🏆</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs uppercase tracking-widest text-accent">
+                        Event · AI dossier
+                      </p>
+                      <p className="truncate font-semibold">
+                        Analyze "{query}" as a {sport} event
+                      </p>
+                    </div>
+                    <span className="text-sm text-muted-foreground">→</span>
+                  </button>
+                )}
+                {!isFetching && query && data && data.length === 0 && (
+                  <p className="mb-3 text-center text-muted-foreground">
+                    No player/team results for "{query}". Try an event above.
+                  </p>
+                )}
+                <ResultsGrid data={data} onPick={pickResult} />
+              </>
             )
           ) : (
             <>
@@ -301,6 +346,7 @@ function Index() {
             </>
           )}
         </section>
+
 
         <footer className="mt-16 text-center text-xs text-muted-foreground">
           Data: TheSportsDB · Analysis: Lovable AI · For informational use.
