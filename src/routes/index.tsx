@@ -1022,3 +1022,209 @@ function StatsCharts({ hit }: { hit: Hit }) {
     </div>
   );
 }
+
+function EventDetail({
+  sport,
+  name,
+  onBack,
+}: {
+  sport: Sport;
+  name: string;
+  onBack: () => void;
+}) {
+  const eventFn = useServerFn(analyzeEvent);
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ["event", sport, name],
+    queryFn: () => eventFn({ data: { sport, name } }) as Promise<EventAnalysis>,
+    staleTime: 15 * 60_000,
+    retry: 0,
+  });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <button onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground">
+          ← Back to results
+        </button>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground hover:border-accent/40 hover:text-foreground disabled:opacity-40"
+        >
+          {isFetching ? "…" : "Regenerate"}
+        </button>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <span className="text-3xl">🏆</span>
+        <div>
+          <p className="text-xs uppercase tracking-widest text-accent">{sport} · Event</p>
+          <h2 className="text-2xl font-bold">{data?.title ?? name}</h2>
+          <p className="text-sm text-muted-foreground">
+            {[data?.dateRange, data?.venue].filter(Boolean).join(" · ")}
+          </p>
+        </div>
+      </div>
+
+      {isLoading && (
+        <p className="mt-6 text-sm text-muted-foreground">Building event dossier with AI…</p>
+      )}
+      {error && (
+        <p className="mt-6 text-sm text-destructive">
+          {(error as Error).message || "Couldn't load event."}
+        </p>
+      )}
+
+      {data && (
+        <div className="mt-6 space-y-6">
+          {data.overview && (
+            <div className="rounded-xl border border-border bg-background/40 p-4">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Overview
+              </h3>
+              <p className="text-sm leading-relaxed text-foreground/90">{data.overview}</p>
+            </div>
+          )}
+
+          {(data.winner || (data.runnersUp && data.runnersUp.length > 0)) && (
+            <div className="grid gap-3 sm:grid-cols-3">
+              {data.winner && (
+                <div className="rounded-xl border border-primary/50 bg-primary/5 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
+                    Winner
+                  </p>
+                  <p className="mt-1 font-semibold">🥇 {data.winner}</p>
+                </div>
+              )}
+              {data.runnersUp?.map((r, i) => (
+                <div key={i} className="rounded-xl border border-border bg-background/40 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    {i === 0 ? "Runner-up" : `#${i + 2}`}
+                  </p>
+                  <p className="mt-1 font-medium">{i === 0 ? "🥈" : "🥉"} {r}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {data.keyStats.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Key stats
+              </h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {data.keyStats.map((s, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm"
+                  >
+                    <span className="text-muted-foreground">{s.label}</span>
+                    <span className="font-semibold">{s.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {data.topPerformers.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Top performers
+              </h3>
+              <ul className="divide-y divide-border rounded-xl border border-border">
+                {data.topPerformers.map((p, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 p-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{p.name}</p>
+                      {p.role && (
+                        <p className="text-xs text-muted-foreground">{p.role}</p>
+                      )}
+                    </div>
+                    <span className="rounded bg-secondary px-2 py-1 font-mono text-xs">
+                      {p.stat}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {data.charts.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Event stats
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {data.charts.map((c, idx) => (
+                  <div key={c.key} className="rounded-lg border border-border bg-background/40 p-3">
+                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                      <p className="text-sm font-semibold">{c.label}</p>
+                      {c.unit && (
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {c.unit}
+                        </span>
+                      )}
+                    </div>
+                    {c.description && (
+                      <p className="mb-2 text-xs text-muted-foreground">{c.description}</p>
+                    )}
+                    <div className="h-52 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={c.series} margin={{ top: 5, right: 8, bottom: 0, left: -20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis
+                            dataKey="label"
+                            stroke="hsl(var(--muted-foreground))"
+                            fontSize={10}
+                            interval={0}
+                            angle={-20}
+                            textAnchor="end"
+                            height={50}
+                          />
+                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} width={40} />
+                          <Tooltip
+                            contentStyle={{
+                              background: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: 8,
+                              fontSize: 12,
+                            }}
+                          />
+                          <Bar
+                            dataKey="value"
+                            fill={CHART_COLORS[idx % CHART_COLORS.length]}
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {data.highlights.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Highlights
+              </h3>
+              <ul className="space-y-1 text-sm">
+                {data.highlights.map((h, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-accent">✦</span>
+                    <span>{h}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {data.notes && (
+            <p className="text-[11px] italic text-muted-foreground">{data.notes}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
