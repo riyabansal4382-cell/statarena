@@ -67,6 +67,7 @@ function Index() {
   const [query, setQuery] = useState("");
   const [showSuggest, setShowSuggest] = useState(false);
   const [selected, setSelected] = useState<Hit | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [slotA, setSlotA] = useState<Hit | null>(null);
   const [slotB, setSlotB] = useState<Hit | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
