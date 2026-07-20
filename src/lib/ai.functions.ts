@@ -26,6 +26,7 @@ async function callGateway(system: string, user: string): Promise<string> {
     },
     body: JSON.stringify({
       model: MODEL,
+      temperature: 0.15,
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
