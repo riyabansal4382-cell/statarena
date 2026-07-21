@@ -900,24 +900,17 @@ function EdgeList({
   );
 }
 
+// Unified bright palette used across all charts (line and bar) so colors pop on dark backgrounds.
 const CHART_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--accent))",
-  "#22d3ee",
-  "#f59e0b",
-  "#a78bfa",
-  "#34d399",
+  "#FF3366", // bright pink
+  "#00CCFF", // bright cyan
+  "#FFCC00", // bright yellow
+  "#00FF99", // bright green
+  "#CC66FF", // bright purple
+  "#FF6633", // bright orange
 ];
 
-// Lighter, high-contrast palette for event bar charts so bars pop on dark backgrounds.
-const EVENT_CHART_COLORS = [
-  "#93c5fd",
-  "#fcd34d",
-  "#fca5a5",
-  "#c4b5fd",
-  "#6ee7b7",
-  "#67e8f9",
-];
+const EVENT_CHART_COLORS = CHART_COLORS;
 
 function StatsCharts({ hit }: { hit: Hit }) {
   const statsFn = useServerFn(entityStats);
