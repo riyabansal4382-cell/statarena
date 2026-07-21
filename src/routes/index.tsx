@@ -70,7 +70,24 @@ function Index() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [slotA, setSlotA] = useState<Hit | null>(null);
   const [slotB, setSlotB] = useState<Hit | null>(null);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = (typeof window !== "undefined" && localStorage.getItem("theme")) as
+      | "dark"
+      | "light"
+      | null;
+    if (saved) setTheme(saved);
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("light", theme === "light");
+    root.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
 
   // Debounce input -> query for autocomplete
   useEffect(() => {
@@ -119,7 +136,14 @@ function Index() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:py-16">
-        <header className="mb-8 text-center">
+        <header className="mb-8 text-center relative">
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            aria-label="Toggle theme"
+            className="absolute right-0 top-0 rounded-full border border-border bg-card px-3 py-1.5 text-sm hover:bg-secondary transition"
+          >
+            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+          </button>
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs uppercase tracking-widest text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             StatArena · AI sports intel
@@ -128,6 +152,7 @@ function Index() {
             Every <span className="text-primary">stat</span>. Every{" "}
             <span className="text-accent">story</span>.
           </h1>
+
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
             Explore Cricket, Tennis, and F1 — or compare two teams / players head to head with AI.
           </p>
