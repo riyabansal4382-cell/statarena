@@ -1202,7 +1202,9 @@ function EventDetail({
                           />
                           <Bar
                             dataKey="value"
-                            fill={CHART_COLORS[idx % CHART_COLORS.length]}
+                            fill={EVENT_CHART_COLORS[idx % EVENT_CHART_COLORS.length]}
+                            stroke="rgba(255,255,255,0.25)"
+                            strokeWidth={1}
                             radius={[4, 4, 0, 0]}
                           />
                         </BarChart>
