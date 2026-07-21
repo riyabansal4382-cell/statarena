@@ -70,7 +70,24 @@ function Index() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [slotA, setSlotA] = useState<Hit | null>(null);
   const [slotB, setSlotB] = useState<Hit | null>(null);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = (typeof window !== "undefined" && localStorage.getItem("theme")) as
+      | "dark"
+      | "light"
+      | null;
+    if (saved) setTheme(saved);
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("light", theme === "light");
+    root.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
 
   // Debounce input -> query for autocomplete
   useEffect(() => {
