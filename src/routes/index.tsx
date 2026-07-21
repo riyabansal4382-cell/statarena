@@ -909,6 +909,16 @@ const CHART_COLORS = [
   "#34d399",
 ];
 
+// Lighter, high-contrast palette for event bar charts so bars pop on dark backgrounds.
+const EVENT_CHART_COLORS = [
+  "#93c5fd",
+  "#fcd34d",
+  "#fca5a5",
+  "#c4b5fd",
+  "#6ee7b7",
+  "#67e8f9",
+];
+
 function StatsCharts({ hit }: { hit: Hit }) {
   const statsFn = useServerFn(entityStats);
   const { data, isLoading, error, refetch, isFetching } = useQuery({
