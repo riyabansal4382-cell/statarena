@@ -900,24 +900,17 @@ function EdgeList({
   );
 }
 
+// Unified bright palette used across all charts (line and bar) so colors pop on dark backgrounds.
 const CHART_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--accent))",
-  "#22d3ee",
-  "#f59e0b",
-  "#a78bfa",
-  "#34d399",
+  "#FF3366", // bright pink
+  "#00CCFF", // bright cyan
+  "#FFCC00", // bright yellow
+  "#00FF99", // bright green
+  "#CC66FF", // bright purple
+  "#FF6633", // bright orange
 ];
 
-// Lighter, high-contrast palette for event bar charts so bars pop on dark backgrounds.
-const EVENT_CHART_COLORS = [
-  "#93c5fd",
-  "#fcd34d",
-  "#fca5a5",
-  "#c4b5fd",
-  "#6ee7b7",
-  "#67e8f9",
-];
+const EVENT_CHART_COLORS = CHART_COLORS;
 
 function StatsCharts({ hit }: { hit: Hit }) {
   const statsFn = useServerFn(entityStats);
@@ -986,9 +979,18 @@ function StatsCharts({ hit }: { hit: Hit }) {
                 {m.description && (
                   <p className="mb-2 text-xs text-muted-foreground">{m.description}</p>
                 )}
-                <div className="h-40 w-full">
+                <div className="h-44 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={m.series} margin={{ top: 8, right: 12, bottom: 4, left: -18 }}>
+                    <LineChart data={m.series} margin={{ top: 10, right: 14, bottom: 4, left: -18 }}>
+                      <defs>
+                        <filter id={`line-glow-${idx}`} x="-50%" y="-50%" width="200%" height="200%">
+                          <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+                          <feMerge>
+                            <feMergeNode in="coloredBlur" />
+                            <feMergeNode in="SourceGraphic" />
+                          </feMerge>
+                        </filter>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" strokeOpacity={0.25} />
                       <XAxis
                         dataKey="year"
@@ -1013,14 +1015,19 @@ function StatsCharts({ hit }: { hit: Hit }) {
                           fontSize: 12,
                         }}
                         labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                        itemStyle={{ color: CHART_COLORS[idx % CHART_COLORS.length] }}
                       />
                       <Line
                         type="monotone"
                         dataKey="value"
                         stroke={CHART_COLORS[idx % CHART_COLORS.length]}
-                        strokeWidth={2.5}
-                        dot={{ r: 3, strokeWidth: 0, fill: CHART_COLORS[idx % CHART_COLORS.length] }}
-                        activeDot={{ r: 5 }}
+                        strokeWidth={3}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        connectNulls
+                        dot={{ r: 4, strokeWidth: 2, stroke: "#0a0a0a", fill: CHART_COLORS[idx % CHART_COLORS.length] }}
+                        activeDot={{ r: 6, strokeWidth: 2, stroke: "#0a0a0a" }}
+                        filter={`url(#line-glow-${idx})`}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -1215,9 +1222,10 @@ function EventDetail({
                           />
                           <Bar
                             dataKey="value"
-                            fill={EVENT_CHART_COLORS[idx % EVENT_CHART_COLORS.length]}
-                            stroke="rgba(255,255,255,0.25)"
-                            strokeWidth={1}
+                            fill={CHART_COLORS[idx % CHART_COLORS.length]}
+                            fillOpacity={0.85}
+                            stroke={CHART_COLORS[idx % CHART_COLORS.length]}
+                            strokeWidth={2}
                             radius={[4, 4, 0, 0]}
                           />
                         </BarChart>
