@@ -988,18 +988,22 @@ function StatsCharts({ hit }: { hit: Hit }) {
                 )}
                 <div className="h-40 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={m.series} margin={{ top: 5, right: 8, bottom: 0, left: -20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <LineChart data={m.series} margin={{ top: 8, right: 12, bottom: 4, left: -18 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" strokeOpacity={0.25} />
                       <XAxis
                         dataKey="year"
                         stroke="hsl(var(--muted-foreground))"
                         fontSize={11}
                         tickMargin={4}
+                        axisLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.7 }}
+                        tickLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.7 }}
                       />
                       <YAxis
                         stroke="hsl(var(--muted-foreground))"
                         fontSize={11}
                         width={40}
+                        axisLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.7 }}
+                        tickLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.7 }}
                       />
                       <Tooltip
                         contentStyle={{
@@ -1015,7 +1019,7 @@ function StatsCharts({ hit }: { hit: Hit }) {
                         dataKey="value"
                         stroke={CHART_COLORS[idx % CHART_COLORS.length]}
                         strokeWidth={2.5}
-                        dot={{ r: 3 }}
+                        dot={{ r: 3, strokeWidth: 0, fill: CHART_COLORS[idx % CHART_COLORS.length] }}
                         activeDot={{ r: 5 }}
                       />
                     </LineChart>
@@ -1180,8 +1184,8 @@ function EventDetail({
                     )}
                     <div className="h-52 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={c.series} margin={{ top: 5, right: 8, bottom: 0, left: -20 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <BarChart data={c.series} margin={{ top: 8, right: 12, bottom: 4, left: -18 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" strokeOpacity={0.25} vertical={false} />
                           <XAxis
                             dataKey="label"
                             stroke="hsl(var(--muted-foreground))"
@@ -1190,8 +1194,16 @@ function EventDetail({
                             angle={-20}
                             textAnchor="end"
                             height={50}
+                            axisLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.7 }}
+                            tickLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.7 }}
                           />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} width={40} />
+                          <YAxis
+                            stroke="hsl(var(--muted-foreground))"
+                            fontSize={11}
+                            width={40}
+                            axisLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.7 }}
+                            tickLine={{ stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.7 }}
+                          />
                           <Tooltip
                             contentStyle={{
                               background: "hsl(var(--card))",
@@ -1199,6 +1211,7 @@ function EventDetail({
                               borderRadius: 8,
                               fontSize: 12,
                             }}
+                            labelStyle={{ color: "hsl(var(--muted-foreground))" }}
                           />
                           <Bar
                             dataKey="value"
