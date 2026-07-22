@@ -678,6 +678,80 @@ function TeamDetail({ team }: { team: TeamHit }) {
   );
 }
 
+const TIER_STYLE: Record<string, string> = {
+  legendary: "border-yellow-400/60 bg-yellow-400/10 text-yellow-200",
+  major: "border-sky-400/50 bg-sky-400/10 text-sky-200",
+  notable: "border-border bg-secondary/40 text-foreground/90",
+};
+
+function MajorWinsPanel({ player }: { player: PlayerHit }) {
+  const fetchWins = useServerFn(majorWins);
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<MajorWins>({
+    queryKey: ["major-wins", player.id, player.sport],
+    queryFn: () =>
+      fetchWins({
+        data: {
+          kind: "player",
+          name: player.name,
+          sport: player.sport,
+          team: player.team,
+          nationality: player.nationality,
+          description: player.description,
+        },
+      }),
+    staleTime: 5 * 60_000,
+  });
+
+  return (
+    <div className="mt-6 rounded-xl border border-border bg-background/40 p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          🏆 Career-defining wins {data?.category ? `· ${data.category}` : ""}
+        </h3>
+        <button
+          onClick={() => refetch()}
+          className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/60"
+          disabled={isFetching}
+        >
+          {isFetching ? "…" : "Regenerate"}
+        </button>
+      </div>
+      {isLoading && <p className="text-sm text-muted-foreground">Compiling their biggest wins…</p>}
+      {isError && <p className="text-sm text-destructive">Couldn't load wins.</p>}
+      {data && data.wins.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No major titles on record for this player as of July 2026.
+        </p>
+      )}
+      {data && data.wins.length > 0 && (
+        <ol className="grid gap-2 sm:grid-cols-2">
+          {data.wins.map((w, i) => (
+            <li
+              key={i}
+              className={`flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${TIER_STYLE[w.tier ?? "major"]}`}
+            >
+              <div className="min-w-0">
+                <div className="font-semibold">
+                  {w.tier === "legendary" ? "👑" : "🏆"} {w.title}
+                </div>
+                {w.detail && (
+                  <div className="mt-0.5 text-xs opacity-80 truncate">{w.detail}</div>
+                )}
+              </div>
+              <span className="shrink-0 rounded-md bg-background/50 px-2 py-0.5 text-xs font-mono">
+                {w.year}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {data?.notes && (
+        <p className="mt-3 text-[11px] italic text-muted-foreground">{data.notes}</p>
+      )}
+    </div>
+  );
+}
+
 function PlayerDetail({ player }: { player: PlayerHit }) {
   const { data: honours } = useQuery({
     queryKey: ["honours", player.id],
