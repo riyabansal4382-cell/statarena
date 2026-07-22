@@ -27,10 +27,12 @@ import {
   compareEntities,
   entityStats,
   analyzeEvent,
+  majorWins,
   type AiAnalysis,
   type Comparison,
   type EntityStats,
   type EventAnalysis,
+  type MajorWins,
 } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/")({
