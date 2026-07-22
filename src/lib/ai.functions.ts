@@ -293,7 +293,7 @@ ${data.team ? `Team: ${data.team}\n` : ""}${data.nationality ? `Nationality: ${d
             title: String(w.title ?? ""),
             year: String(w.year ?? ""),
             detail: w.detail ? String(w.detail) : undefined,
-            tier: w.tier === "legendary" || w.tier === "notable" ? w.tier : "major",
+            tier: (w.tier === "legendary" || w.tier === "notable" ? w.tier : "major") as MajorWin["tier"],
           }))
         : [],
       notes: parsed.notes ? String(parsed.notes) : undefined,
