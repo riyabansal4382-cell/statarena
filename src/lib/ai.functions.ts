@@ -238,6 +238,68 @@ Produce year-by-year metric series through 2026.`;
     };
   });
 
+export type MajorWin = {
+  title: string;
+  year: string;
+  detail?: string;
+  tier?: "legendary" | "major" | "notable";
+};
+export type MajorWins = {
+  category: string;
+  wins: MajorWin[];
+  notes?: string;
+};
+
+export const majorWins = createServerFn({ method: "POST" })
+  .inputValidator((input: EntityInput) => {
+    if (!input?.name) throw new Error("name required");
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const sport = data.sport;
+    const categoryHint =
+      sport === "Tennis"
+        ? "Grand Slam singles titles (Australian Open, Roland Garros, Wimbledon, US Open), then ATP/WTA Finals, Olympic gold, Masters 1000s"
+        : sport === "Cricket"
+          ? "ICC trophies (World Cup, T20 World Cup, Champions Trophy), major series wins, IPL titles, individual milestones (double centuries, 5-fers in finals)"
+          : sport === "Motorsport" || sport === "F1"
+            ? "F1 World Drivers' Championships, then iconic race wins (Monaco GP, British GP, Italian GP), pole records, constructor titles for teams"
+            : "the most prestigious trophies and championships of the sport";
+
+    const system = `You are a sports historian. Return the MOST RECOGNIZABLE, career-defining wins for a ${data.kind} in ${sport}, as JSON only.
+${DATE_CONTEXT}
+Prioritize ${categoryHint}. Order from most recent to oldest. Include ONLY wins you are confident are real (verifiable public record through ${CURRENT_DATE}). If the athlete has none of these, return an empty wins array — do NOT invent titles.
+Schema: {
+  "category": string (e.g. "Grand Slam titles", "ICC & IPL trophies", "F1 championships & iconic wins"),
+  "wins": [{
+    "title": string (e.g. "Wimbledon", "IPL", "Monaco Grand Prix"),
+    "year": string (e.g. "2025" or "2023-24"),
+    "detail": string (1 short clause: opponent beaten in final / team / margin — omit if unsure),
+    "tier": "legendary" | "major" | "notable"
+  }] (up to 20, most recent first),
+  "notes": string (optional 1-sentence caveat)
+}`;
+
+    const user = `${data.kind}: ${data.name}
+Sport: ${sport}
+${data.team ? `Team: ${data.team}\n` : ""}${data.nationality ? `Nationality: ${data.nationality}\n` : ""}List their most recognizable, career-defining wins as of ${CURRENT_DATE}.`;
+
+    const raw = await callGateway(system, user);
+    const parsed = safeJson<MajorWins>(raw, { category: "", wins: [] });
+    return {
+      category: String(parsed.category ?? ""),
+      wins: Array.isArray(parsed.wins)
+        ? parsed.wins.slice(0, 24).map((w) => ({
+            title: String(w.title ?? ""),
+            year: String(w.year ?? ""),
+            detail: w.detail ? String(w.detail) : undefined,
+            tier: (w.tier === "legendary" || w.tier === "notable" ? w.tier : "major") as MajorWin["tier"],
+          }))
+        : [],
+      notes: parsed.notes ? String(parsed.notes) : undefined,
+    };
+  });
+
 export type EventStat = { label: string; value: string };
 export type EventPerformer = { name: string; role?: string; stat: string };
 export type EventChart = {
