@@ -724,6 +724,8 @@ function PlayerDetail({ player }: { player: PlayerHit }) {
       )}
 
       <AiPanel hit={player} />
+      <MajorWinsPanel player={player} />
+
       <StatsCharts hit={player} />
 
       {honours && honours.length > 0 && (
