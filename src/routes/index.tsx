@@ -84,7 +84,7 @@ function Index() {
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("light", theme === "light");
-    root.classList.toggle("dark", theme === "dark");
+    root.classList.remove("dark");
     localStorage.setItem("theme", theme);
   }, [theme]);
 
