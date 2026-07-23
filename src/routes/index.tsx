@@ -321,6 +321,7 @@ function Index() {
             </button>
           ))}
         </div>
+        )}
 
         <section className="mt-10">
           {error && (
