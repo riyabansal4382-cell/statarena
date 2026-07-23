@@ -34,6 +34,7 @@ import {
   type EventAnalysis,
   type MajorWins,
 } from "@/lib/ai.functions";
+import { getLiveScores, type LiveScore } from "@/lib/live.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -63,7 +64,7 @@ const EVENT_SUGGESTIONS: Record<Sport, string[]> = {
 // Rough heuristic: does this query look like an event name?
 const EVENT_HINTS = /\b(cup|open|championship|series|league|grand prix|gp|final|test|masters|ashes|olympi|world|trophy|ipl|bbl|psl|t20|odi|slam|wimbledon|roland|20\d\d)\b/i;
 
-type Mode = "explore" | "compare";
+type Mode = "explore" | "compare" | "live";
 
 function Index() {
   const [mode, setMode] = useState<Mode>("explore");
@@ -164,7 +165,7 @@ function Index() {
         </header>
 
         <div className="mx-auto mb-6 flex w-fit rounded-full border border-border bg-card p-1">
-          {(["explore", "compare"] as Mode[]).map((m) => (
+          {(["explore", "compare", "live"] as Mode[]).map((m) => (
             <button
               key={m}
               onClick={() => {
@@ -178,7 +179,7 @@ function Index() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {m === "compare" ? "⚔ Compare" : "🔎 Explore"}
+              {m === "compare" ? "⚔ Compare" : m === "live" ? "🔴 Live" : "🔎 Explore"}
             </button>
           ))}
         </div>
@@ -213,6 +214,8 @@ function Index() {
           />
         )}
 
+        {mode !== "live" && (
+        <>
         <form onSubmit={submit} className="mx-auto max-w-2xl">
           <div ref={boxRef} className="relative flex gap-2">
             <input
@@ -320,6 +323,8 @@ function Index() {
             </button>
           ))}
         </div>
+        </>
+        )}
 
         <section className="mt-10">
           {error && (
@@ -331,7 +336,9 @@ function Index() {
             <p className="text-center text-muted-foreground">Searching {sport}…</p>
           )}
 
-          {mode === "explore" ? (
+          {mode === "live" ? (
+            <LiveScoresView sport={sport} />
+          ) : mode === "explore" ? (
             selectedEvent ? (
               <EventDetail
                 sport={sport}
@@ -1364,6 +1371,161 @@ function EventDetail({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function LiveScoresView({ sport }: { sport: Sport }) {
+  const fetchLive = useServerFn(getLiveScores);
+  const { data, isFetching, error, refetch, dataUpdatedAt } = useQuery({
+    queryKey: ["live", sport],
+    queryFn: () => fetchLive({ data: { sport } }),
+    refetchInterval: 30000,
+    staleTime: 15000,
+  });
+
+  const events = data?.events ?? [];
+  const live = events.filter((e) => e.state === "in");
+  const upcoming = events.filter((e) => e.state === "pre").slice(0, 8);
+  const finished = events.filter((e) => e.state === "post").slice(0, 8);
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-70"></span>
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
+          </span>
+          <h2 className="text-xl font-semibold">Live {sport} scores</h2>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+            {live.length} live · auto-refresh 30s
+          </span>
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground"
+        >
+          {isFetching ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+
+      {error && (
+        <p className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          Couldn't load live scores. Try again.
+        </p>
+      )}
+
+      {!error && events.length === 0 && !isFetching && (
+        <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          No {sport} matches on the wire right now. Check back soon.
+        </p>
+      )}
+
+      <LiveSection title="🔴 Live now" items={live} emptyHint="No matches in progress." />
+      <LiveSection title="⏭ Upcoming" items={upcoming} />
+      <LiveSection title="✅ Recently finished" items={finished} />
+
+      {dataUpdatedAt > 0 && (
+        <p className="mt-4 text-right text-xs text-muted-foreground">
+          Updated {new Date(dataUpdatedAt).toLocaleTimeString()} · Source: ESPN
+        </p>
+      )}
+    </div>
+  );
+}
+
+function LiveSection({
+  title,
+  items,
+  emptyHint,
+}: {
+  title: string;
+  items: LiveScore[];
+  emptyHint?: string;
+}) {
+  if (items.length === 0 && !emptyHint) return null;
+  return (
+    <div className="mb-6">
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        {title}
+      </h3>
+      {items.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          {emptyHint}
+        </p>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {items.map((m) => (
+            <LiveCard key={m.id} m={m} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LiveCard({ m }: { m: LiveScore }) {
+  const isLive = m.state === "in";
+  const isPre = m.state === "pre";
+  return (
+    <div
+      className={`rounded-xl border p-3 transition ${
+        isLive
+          ? "border-red-500/50 bg-red-500/5"
+          : "border-border bg-card hover:border-primary/40"
+      }`}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2 text-xs">
+        <span className="truncate text-muted-foreground">{m.league}</span>
+        <span
+          className={`shrink-0 rounded px-1.5 py-0.5 font-medium ${
+            isLive
+              ? "bg-red-500/20 text-red-400"
+              : isPre
+                ? "bg-secondary text-muted-foreground"
+                : "bg-secondary text-muted-foreground"
+          }`}
+        >
+          {isLive ? `● ${m.shortDetail ?? "LIVE"}` : (m.shortDetail ?? m.status)}
+        </span>
+      </div>
+      <TeamRow name={m.home.name} logo={m.home.logo} score={m.home.score} live={isLive} />
+      <div className="my-1 h-px bg-border/60" />
+      <TeamRow name={m.away.name} logo={m.away.logo} score={m.away.score} live={isLive} />
+      {m.note && (
+        <p className="mt-2 truncate text-[11px] text-muted-foreground">{m.note}</p>
+      )}
+    </div>
+  );
+}
+
+function TeamRow({
+  name,
+  logo,
+  score,
+  live,
+}: {
+  name: string;
+  logo?: string;
+  score?: string;
+  live: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-6 w-6 shrink-0 overflow-hidden rounded bg-secondary">
+        {logo ? (
+          <img src={logo} alt="" className="h-full w-full object-contain" />
+        ) : null}
+      </div>
+      <p className="min-w-0 flex-1 truncate text-sm font-medium">{name}</p>
+      <span
+        className={`shrink-0 tabular-nums text-base font-semibold ${
+          live ? "text-red-400" : "text-foreground"
+        }`}
+      >
+        {score ?? "-"}
+      </span>
     </div>
   );
 }
