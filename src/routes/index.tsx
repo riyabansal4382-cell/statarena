@@ -63,7 +63,7 @@ const EVENT_SUGGESTIONS: Record<Sport, string[]> = {
 // Rough heuristic: does this query look like an event name?
 const EVENT_HINTS = /\b(cup|open|championship|series|league|grand prix|gp|final|test|masters|ashes|olympi|world|trophy|ipl|bbl|psl|t20|odi|slam|wimbledon|roland|20\d\d)\b/i;
 
-type Mode = "explore" | "compare";
+type Mode = "explore" | "compare" | "live";
 
 function Index() {
   const [mode, setMode] = useState<Mode>("explore");
