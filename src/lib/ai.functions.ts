@@ -345,7 +345,9 @@ export const analyzeEvent = createServerFn({ method: "POST" })
           ? 'e.g. top run-scorers, top wicket-takers, team net run rates'
           : data.sport === "F1" || data.sport === "Motorsport"
             ? 'e.g. lap times of top drivers, points scored by top drivers, fastest sector splits'
-            : 'top performers vs key metric';
+            : data.sport === "Football" || data.sport === "Soccer"
+              ? 'e.g. top scorers, top assisters, team goals scored, xG leaders'
+              : 'top performers vs key metric';
 
     const system = `You are a sports analyst producing a factual event dossier as JSON only.
 ${DATE_CONTEXT}
