@@ -188,7 +188,9 @@ export const entityStats = createServerFn({ method: "POST" })
           ? "batting average, strike rate, bowling economy, fielding rating, form index"
           : sport === "Motorsport" || sport === "F1"
             ? "qualifying pace, race pace, tyre management, wet-weather skill, consistency"
-            : "overall rating, form, consistency";
+            : sport === "Football" || sport === "Soccer"
+              ? "goals per season, assists per season, shot accuracy, passing accuracy, dribbling, defensive contribution, overall rating"
+              : "overall rating, form, consistency";
 
     const system = `You are a sports analyst producing year-by-year performance ratings.
 ${DATE_CONTEXT}
