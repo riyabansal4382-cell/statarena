@@ -188,7 +188,9 @@ export const entityStats = createServerFn({ method: "POST" })
           ? "batting average, strike rate, bowling economy, fielding rating, form index"
           : sport === "Motorsport" || sport === "F1"
             ? "qualifying pace, race pace, tyre management, wet-weather skill, consistency"
-            : "overall rating, form, consistency";
+            : sport === "Football" || sport === "Soccer"
+              ? "goals per season, assists per season, shot accuracy, passing accuracy, dribbling, defensive contribution, overall rating"
+              : "overall rating, form, consistency";
 
     const system = `You are a sports analyst producing year-by-year performance ratings.
 ${DATE_CONTEXT}
@@ -264,7 +266,9 @@ export const majorWins = createServerFn({ method: "POST" })
           ? "ICC trophies (World Cup, T20 World Cup, Champions Trophy), major series wins, IPL titles, individual milestones (double centuries, 5-fers in finals)"
           : sport === "Motorsport" || sport === "F1"
             ? "F1 World Drivers' Championships, then iconic race wins (Monaco GP, British GP, Italian GP), pole records, constructor titles for teams"
-            : "the most prestigious trophies and championships of the sport";
+            : sport === "Football" || sport === "Soccer"
+              ? "FIFA World Cup, UEFA Champions League, continental titles (Euros, Copa America, AFCON), major domestic league titles (Premier League, La Liga, Serie A, Bundesliga), Ballon d'Or (players), domestic cups"
+              : "the most prestigious trophies and championships of the sport";
 
     const system = `You are a sports historian. Return the MOST RECOGNIZABLE, career-defining wins for a ${data.kind} in ${sport}, as JSON only.
 ${DATE_CONTEXT}
@@ -341,7 +345,9 @@ export const analyzeEvent = createServerFn({ method: "POST" })
           ? 'e.g. top run-scorers, top wicket-takers, team net run rates'
           : data.sport === "F1" || data.sport === "Motorsport"
             ? 'e.g. lap times of top drivers, points scored by top drivers, fastest sector splits'
-            : 'top performers vs key metric';
+            : data.sport === "Football" || data.sport === "Soccer"
+              ? 'e.g. top scorers, top assisters, team goals scored, xG leaders'
+              : 'top performers vs key metric';
 
     const system = `You are a sports analyst producing a factual event dossier as JSON only.
 ${DATE_CONTEXT}

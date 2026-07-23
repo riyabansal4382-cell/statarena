@@ -43,18 +43,21 @@ const SPORTS: { key: Sport; label: string; emoji: string }[] = [
   { key: "Cricket", label: "Cricket", emoji: "🏏" },
   { key: "Tennis", label: "Tennis", emoji: "🎾" },
   { key: "F1", label: "Formula 1", emoji: "🏎️" },
+  { key: "Football", label: "Football", emoji: "⚽" },
 ];
 
 const SUGGESTIONS: Record<Sport, string[]> = {
   Cricket: ["India", "Mumbai Indians", "Virat Kohli", "Ben Stokes"],
   Tennis: ["Novak Djokovic", "Carlos Alcaraz", "Iga Swiatek", "Serena Williams"],
   F1: ["Lewis Hamilton", "Max Verstappen", "Ferrari", "McLaren"],
+  Football: ["Lionel Messi", "Kylian Mbappé", "Real Madrid", "Manchester City"],
 };
 
 const EVENT_SUGGESTIONS: Record<Sport, string[]> = {
   Cricket: ["IPL 2025", "ICC T20 World Cup 2024", "The Ashes 2023", "Cricket World Cup 2023"],
   Tennis: ["Wimbledon 2025", "US Open 2025", "Australian Open 2026", "Roland Garros 2025"],
   F1: ["Monaco GP 2025", "British GP 2025", "Abu Dhabi GP 2025", "Bahrain GP 2026"],
+  Football: ["FIFA World Cup 2022", "UEFA Champions League 2024-25", "Euro 2024", "Copa America 2024"],
 };
 
 // Rough heuristic: does this query look like an event name?
@@ -156,7 +159,7 @@ function Index() {
           </h1>
 
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Explore Cricket, Tennis, and F1 — or compare two teams / players head to head with AI.
+            Explore Cricket, Tennis, F1, and Football — or compare two teams / players head to head with AI.
           </p>
         </header>
 
