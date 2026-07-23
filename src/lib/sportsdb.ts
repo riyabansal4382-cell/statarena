@@ -3,12 +3,13 @@
 
 const BASE = "https://www.thesportsdb.com/api/v1/json/3";
 
-export type Sport = "Cricket" | "Tennis" | "F1";
+export type Sport = "Cricket" | "Tennis" | "F1" | "Football";
 
 export const SPORT_TO_DB: Record<Sport, string> = {
   Cricket: "Cricket",
   Tennis: "Tennis",
   F1: "Motorsport",
+  Football: "Soccer",
 };
 
 export type TeamHit = {
