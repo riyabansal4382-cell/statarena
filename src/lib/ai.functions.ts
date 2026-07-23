@@ -266,7 +266,9 @@ export const majorWins = createServerFn({ method: "POST" })
           ? "ICC trophies (World Cup, T20 World Cup, Champions Trophy), major series wins, IPL titles, individual milestones (double centuries, 5-fers in finals)"
           : sport === "Motorsport" || sport === "F1"
             ? "F1 World Drivers' Championships, then iconic race wins (Monaco GP, British GP, Italian GP), pole records, constructor titles for teams"
-            : "the most prestigious trophies and championships of the sport";
+            : sport === "Football" || sport === "Soccer"
+              ? "FIFA World Cup, UEFA Champions League, continental titles (Euros, Copa America, AFCON), major domestic league titles (Premier League, La Liga, Serie A, Bundesliga), Ballon d'Or (players), domestic cups"
+              : "the most prestigious trophies and championships of the sport";
 
     const system = `You are a sports historian. Return the MOST RECOGNIZABLE, career-defining wins for a ${data.kind} in ${sport}, as JSON only.
 ${DATE_CONTEXT}
