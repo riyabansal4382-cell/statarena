@@ -335,7 +335,9 @@ function Index() {
             <p className="text-center text-muted-foreground">Searching {sport}…</p>
           )}
 
-          {mode === "explore" ? (
+          {mode === "live" ? (
+            <LiveScoresView sport={sport} />
+          ) : mode === "explore" ? (
             selectedEvent ? (
               <EventDetail
                 sport={sport}
