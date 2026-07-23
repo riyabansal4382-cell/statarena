@@ -213,6 +213,7 @@ function Index() {
           />
         )}
 
+        {mode !== "live" && (
         <form onSubmit={submit} className="mx-auto max-w-2xl">
           <div ref={boxRef} className="relative flex gap-2">
             <input
