@@ -159,7 +159,7 @@ function Index() {
           </h1>
 
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Explore Cricket, Tennis, and F1 — or compare two teams / players head to head with AI.
+            Explore Cricket, Tennis, F1, and Football — or compare two teams / players head to head with AI.
           </p>
         </header>
 
