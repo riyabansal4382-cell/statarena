@@ -34,6 +34,7 @@ import {
   type EventAnalysis,
   type MajorWins,
 } from "@/lib/ai.functions";
+import { getLiveScores, type LiveScore } from "@/lib/live.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
