@@ -1426,6 +1426,10 @@ function LiveScoresView({ sport }: { sport: Sport }) {
         </p>
       )}
 
+      {sport === "F1" && (
+        <F1GridPanel liveEvent={live[0] ?? upcoming[0] ?? finished[0]} />
+      )}
+
       <LiveSection title="🔴 Live now" items={live} emptyHint="No matches in progress." />
       <LiveSection title="⏭ Upcoming" items={upcoming} />
       <LiveSection title="✅ Recently finished" items={finished} />
