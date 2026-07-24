@@ -28,11 +28,13 @@ import {
   entityStats,
   analyzeEvent,
   majorWins,
+  liveInsight,
   type AiAnalysis,
   type Comparison,
   type EntityStats,
   type EventAnalysis,
   type MajorWins,
+  type LiveInsight,
 } from "@/lib/ai.functions";
 import { getLiveScores, type LiveScore } from "@/lib/live.functions";
 
