@@ -29,12 +29,14 @@ import {
   analyzeEvent,
   majorWins,
   liveInsight,
+  f1LiveGrid,
   type AiAnalysis,
   type Comparison,
   type EntityStats,
   type EventAnalysis,
   type MajorWins,
   type LiveInsight,
+  type F1LiveGrid,
 } from "@/lib/ai.functions";
 import { getLiveScores, type LiveScore } from "@/lib/live.functions";
 
