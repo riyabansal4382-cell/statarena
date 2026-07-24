@@ -486,3 +486,96 @@ Produce the live insight JSON.`;
         : [],
     };
   });
+
+export type F1Driver = {
+  position: number;
+  driver: string;
+  team: string;
+  gap: string;      // "Leader", "+2.145", "+1 Lap"
+  lastLap?: string; // "1:19.842"
+  tire?: string;    // "Soft" | "Medium" | "Hard" | "Inter" | "Wet"
+  tireAge?: number; // laps on current set
+  status?: string;  // "Running", "Pit", "DNF", "Retired"
+  change?: number;  // positions gained/lost vs start (positive = gained)
+};
+
+export type F1LiveGrid = {
+  race: string;
+  session: string; // "Race lap 34/57" | "Qualifying Q3" | "Between sessions"
+  phase: "in" | "pre" | "post";
+  narrative: string;
+  battles: string[];
+  strategy: string;
+  drivers: F1Driver[];
+  disclaimer: string;
+};
+
+type F1GridInput = { event?: string; status?: string; detail?: string };
+
+export const f1LiveGrid = createServerFn({ method: "POST" })
+  .inputValidator((input: F1GridInput) => input ?? {})
+  .handler(async ({ data }) => {
+    const system = `You are an F1 live-timing analyst. Return JSON only.
+${DATE_CONTEXT}
+Produce a plausible live grid snapshot for the current or most recent F1 session as of ${CURRENT_DATE}.
+CRITICAL: If no session is currently in progress, describe the most recent completed race and set phase to "post".
+Use ONLY real 2025/2026 F1 drivers and teams (all 20 drivers on the current grid + reserve drivers if needed to fill). Do not invent fictional drivers.
+Schema: {
+  "race": string (e.g. "British Grand Prix 2026"),
+  "session": string (e.g. "Race — Lap 34/52" or "Qualifying Q3" or "Post-race"),
+  "phase": "in" | "pre" | "post",
+  "narrative": string (2-3 sentences of what is happening RIGHT NOW in the session),
+  "battles": string[] (2-4 short bullets describing on-track battles or storylines),
+  "strategy": string (1-2 sentences on tire strategy / undercut / weather),
+  "drivers": [{
+    "position": number (1-20),
+    "driver": string (full name, e.g. "Lando Norris"),
+    "team": string (e.g. "McLaren"),
+    "gap": string (P1 = "Leader"; others = "+SS.sss" or "+N Laps"; DNF = "DNF"),
+    "lastLap": string (e.g. "1:19.842" or ""),
+    "tire": "Soft" | "Medium" | "Hard" | "Inter" | "Wet",
+    "tireAge": number (laps on current compound, 0-40),
+    "status": "Running" | "Pit" | "DNF" | "Retired" | "Out lap",
+    "change": number (positions gained (+) or lost (-) vs starting grid; 0 if unknown)
+  }] (exactly 20 rows, sorted by position ascending),
+  "disclaimer": string (1 sentence: "AI-estimated snapshot; not real-time telemetry.")
+}`;
+
+    const user = `Event context: ${data.event ?? "current or most recent F1 Grand Prix"}
+Status: ${data.status ?? ""}${data.detail ? ` (${data.detail})` : ""}
+Produce the live grid snapshot with all 20 drivers.`;
+
+    const raw = await callGateway(system, user);
+    const parsed = safeJson<F1LiveGrid>(raw, {
+      race: "",
+      session: "",
+      phase: "post",
+      narrative: "",
+      battles: [],
+      strategy: "",
+      drivers: [],
+      disclaimer: "",
+    });
+    return {
+      race: String(parsed.race ?? ""),
+      session: String(parsed.session ?? ""),
+      phase: (parsed.phase === "in" || parsed.phase === "pre" ? parsed.phase : "post") as F1LiveGrid["phase"],
+      narrative: String(parsed.narrative ?? ""),
+      battles: Array.isArray(parsed.battles) ? parsed.battles.slice(0, 6).map(String) : [],
+      strategy: String(parsed.strategy ?? ""),
+      drivers: Array.isArray(parsed.drivers)
+        ? parsed.drivers.slice(0, 22).map((d, i) => ({
+            position: Number.isFinite(Number(d.position)) ? Number(d.position) : i + 1,
+            driver: String(d.driver ?? ""),
+            team: String(d.team ?? ""),
+            gap: String(d.gap ?? ""),
+            lastLap: d.lastLap ? String(d.lastLap) : undefined,
+            tire: d.tire ? String(d.tire) : undefined,
+            tireAge: Number.isFinite(Number(d.tireAge)) ? Number(d.tireAge) : undefined,
+            status: d.status ? String(d.status) : "Running",
+            change: Number.isFinite(Number(d.change)) ? Number(d.change) : 0,
+          })).sort((a, b) => a.position - b.position)
+        : [],
+      disclaimer: String(parsed.disclaimer ?? "AI-estimated snapshot; not real-time telemetry."),
+    };
+  });

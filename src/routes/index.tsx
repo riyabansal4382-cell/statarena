@@ -29,12 +29,14 @@ import {
   analyzeEvent,
   majorWins,
   liveInsight,
+  f1LiveGrid,
   type AiAnalysis,
   type Comparison,
   type EntityStats,
   type EventAnalysis,
   type MajorWins,
   type LiveInsight,
+  type F1LiveGrid,
 } from "@/lib/ai.functions";
 import { getLiveScores, type LiveScore } from "@/lib/live.functions";
 
@@ -1424,6 +1426,10 @@ function LiveScoresView({ sport }: { sport: Sport }) {
         </p>
       )}
 
+      {sport === "F1" && (
+        <F1GridPanel liveEvent={live[0] ?? upcoming[0] ?? finished[0]} />
+      )}
+
       <LiveSection title="🔴 Live now" items={live} emptyHint="No matches in progress." />
       <LiveSection title="⏭ Upcoming" items={upcoming} />
       <LiveSection title="✅ Recently finished" items={finished} />
@@ -1610,6 +1616,161 @@ function TeamRow({
       >
         {score ?? "-"}
       </span>
+    </div>
+  );
+}
+
+const TIRE_COLOR: Record<string, string> = {
+  Soft: "bg-red-500/20 text-red-400 border-red-500/40",
+  Medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/40",
+  Hard: "bg-white/10 text-foreground border-white/30",
+  Inter: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
+  Wet: "bg-blue-500/20 text-blue-400 border-blue-500/40",
+};
+
+function F1GridPanel({ liveEvent }: { liveEvent?: LiveScore }) {
+  const fn = useServerFn(f1LiveGrid);
+  const isLive = liveEvent?.state === "in";
+  const { data, isPending, isError, error, refetch, isFetching } = useQuery<F1LiveGrid>({
+    queryKey: ["f1grid", liveEvent?.id ?? "latest", isLive],
+    queryFn: () =>
+      fn({
+        data: {
+          event: liveEvent?.home?.name || liveEvent?.league || "current F1 Grand Prix",
+          status: liveEvent?.status,
+          detail: liveEvent?.detail,
+        },
+      }),
+    staleTime: 60_000,
+    refetchInterval: isLive ? 90_000 : false,
+  });
+
+  return (
+    <div className="mb-6 rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            🏁 Live timing
+            {isLive && (
+              <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-xs font-medium text-red-400">
+                ● LIVE
+              </span>
+            )}
+          </h3>
+          {data && (
+            <p className="text-xs text-muted-foreground">
+              {data.race}{data.session ? ` · ${data.session}` : ""}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+        >
+          {isFetching ? "Refreshing…" : "↻ Refresh"}
+        </button>
+      </div>
+
+      {isPending && (
+        <p className="py-6 text-center text-sm text-muted-foreground">Building live grid…</p>
+      )}
+
+      {isError && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {(error as Error)?.message ?? "Failed to load grid."}
+        </div>
+      )}
+
+      {data && !isPending && (
+        <>
+          {data.narrative && (
+            <p className="mb-3 rounded-lg border border-border bg-background/40 p-2.5 text-sm text-foreground/90">
+              {data.narrative}
+            </p>
+          )}
+
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[560px] text-xs">
+              <thead className="bg-secondary/60 text-muted-foreground">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-medium">Pos</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Driver</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Team</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Gap</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Last lap</th>
+                  <th className="px-2 py-1.5 text-center font-medium">Tire</th>
+                  <th className="px-2 py-1.5 text-center font-medium">Δ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.drivers.map((d) => {
+                  const dnf = d.status === "DNF" || d.status === "Retired";
+                  return (
+                    <tr
+                      key={`${d.position}-${d.driver}`}
+                      className={`border-t border-border/60 ${dnf ? "opacity-50" : ""}`}
+                    >
+                      <td className="px-2 py-1.5 font-semibold tabular-nums">
+                        {d.position}
+                      </td>
+                      <td className="px-2 py-1.5 font-medium">{d.driver}</td>
+                      <td className="px-2 py-1.5 text-muted-foreground">{d.team}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{d.gap}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                        {d.lastLap ?? "—"}
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        {d.tire ? (
+                          <span
+                            className={`inline-block rounded border px-1.5 py-0.5 text-[10px] font-semibold ${TIRE_COLOR[d.tire] ?? "border-border text-muted-foreground"}`}
+                          >
+                            {d.tire[0]}{d.tireAge != null ? ` ${d.tireAge}` : ""}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td
+                        className={`px-2 py-1.5 text-center tabular-nums ${
+                          d.change > 0
+                            ? "text-emerald-400"
+                            : d.change < 0
+                              ? "text-red-400"
+                              : "text-muted-foreground"
+                        }`}
+                      >
+                        {d.change > 0 ? `▲${d.change}` : d.change < 0 ? `▼${-d.change}` : "–"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {data.battles.length > 0 && (
+              <div className="rounded-lg border border-border bg-background/40 p-2.5 text-xs">
+                <p className="mb-1 font-semibold text-yellow-400">⚔ On-track battles</p>
+                <ul className="list-disc space-y-0.5 pl-4 text-foreground/90">
+                  {data.battles.map((b, i) => <li key={i}>{b}</li>)}
+                </ul>
+              </div>
+            )}
+            {data.strategy && (
+              <div className="rounded-lg border border-border bg-background/40 p-2.5 text-xs">
+                <p className="mb-1 font-semibold text-cyan-400">🛞 Strategy</p>
+                <p className="text-foreground/90 leading-snug">{data.strategy}</p>
+              </div>
+            )}
+          </div>
+
+          {data.disclaimer && (
+            <p className="mt-2 text-[10px] italic text-muted-foreground">{data.disclaimer}</p>
+          )}
+        </>
+      )}
     </div>
   );
 }
