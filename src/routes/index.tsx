@@ -1470,6 +1470,7 @@ function LiveSection({
 function LiveCard({ m }: { m: LiveScore }) {
   const isLive = m.state === "in";
   const isPre = m.state === "pre";
+  const [open, setOpen] = useState(false);
   return (
     <div
       className={`rounded-xl border p-3 transition ${
@@ -1498,6 +1499,87 @@ function LiveCard({ m }: { m: LiveScore }) {
       {m.note && (
         <p className="mt-2 truncate text-[11px] text-muted-foreground">{m.note}</p>
       )}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="mt-2 w-full rounded-md border border-border bg-secondary/50 px-2 py-1 text-xs font-medium text-foreground transition hover:border-primary/40 hover:bg-secondary"
+      >
+        {open ? "Hide AI insight" : "✨ AI insight — recap, hype & prediction"}
+      </button>
+      {open && <LiveInsightPanel m={m} />}
+    </div>
+  );
+}
+
+function LiveInsightPanel({ m }: { m: LiveScore }) {
+  const fn = useServerFn(liveInsight);
+  const { data, isPending, isError, error, refetch, isFetching } = useQuery<LiveInsight>({
+    queryKey: ["liveInsight", m.id, m.home.score, m.away.score, m.state],
+    queryFn: () =>
+      fn({
+        data: {
+          sport: m.league,
+          league: m.league,
+          state: m.state,
+          status: m.status,
+          detail: m.detail,
+          home: { name: m.home.name, score: m.home.score },
+          away: { name: m.away.name, score: m.away.score },
+          note: m.note,
+        },
+      }),
+    staleTime: 60_000,
+  });
+
+  if (isPending) return <p className="mt-2 text-xs text-muted-foreground">Analyzing match…</p>;
+  if (isError)
+    return (
+      <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs">
+        <p className="text-destructive">{(error as Error)?.message ?? "Failed to load insight."}</p>
+        <button onClick={() => refetch()} className="mt-1 text-primary hover:underline">
+          Retry
+        </button>
+      </div>
+    );
+
+  return (
+    <div className="mt-2 space-y-2 rounded-md border border-border bg-background/40 p-2 text-xs">
+      {data.recap && (
+        <div>
+          <p className="mb-0.5 font-semibold text-primary">📝 So far</p>
+          <p className="text-foreground/90 leading-snug">{data.recap}</p>
+        </div>
+      )}
+      {data.excitement && (
+        <div>
+          <p className="mb-0.5 font-semibold text-yellow-400">🔥 Why it's exciting</p>
+          <p className="text-foreground/90 leading-snug">{data.excitement}</p>
+        </div>
+      )}
+      {data.prediction && (
+        <div>
+          <p className="mb-0.5 font-semibold text-emerald-400">
+            {m.state === "post" ? "🎯 Decisive moment" : "🔮 Prediction"}
+          </p>
+          <p className="text-foreground/90 leading-snug">{data.prediction}</p>
+        </div>
+      )}
+      {data.keyMoments.length > 0 && (
+        <div>
+          <p className="mb-0.5 font-semibold text-cyan-400">📌 Key moments</p>
+          <ul className="list-disc space-y-0.5 pl-4 text-foreground/90">
+            {data.keyMoments.map((k, i) => (
+              <li key={i} className="leading-snug">{k}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <button
+        onClick={() => refetch()}
+        disabled={isFetching}
+        className="text-[11px] text-primary hover:underline disabled:opacity-50"
+      >
+        {isFetching ? "Refreshing…" : "↻ Regenerate"}
+      </button>
     </div>
   );
 }
