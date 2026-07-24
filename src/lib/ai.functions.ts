@@ -420,3 +420,69 @@ Produce the event dossier. If the exact edition is ambiguous, cover the most rec
       notes: parsed.notes ? String(parsed.notes) : undefined,
     };
   });
+
+export type LiveInsight = {
+  recap: string;
+  excitement: string;
+  prediction: string;
+  keyMoments: string[];
+};
+
+type LiveInsightInput = {
+  sport: string;
+  league?: string;
+  state: string; // "in" | "pre" | "post"
+  status?: string;
+  detail?: string;
+  home: { name: string; score?: string };
+  away: { name: string; score?: string };
+  note?: string;
+};
+
+export const liveInsight = createServerFn({ method: "POST" })
+  .inputValidator((input: LiveInsightInput) => {
+    if (!input?.home?.name || !input?.away?.name) throw new Error("teams required");
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const phase =
+      data.state === "in"
+        ? "in-progress"
+        : data.state === "pre"
+          ? "upcoming (not started)"
+          : "finished";
+
+    const system = `You are a live sports analyst. Return JSON only.
+${DATE_CONTEXT}
+Given a ${data.sport} match that is ${phase}, produce:
+Schema: {
+  "recap": string (2-3 sentences summarizing what has happened so far based on the current score/state; if upcoming, describe stakes, form, and context instead),
+  "excitement": string (1-2 sentences on why this match is exciting — rivalry, stakes, records on the line, storylines),
+  "prediction": string (1-2 sentences with a grounded prediction of the likely outcome or key thing to watch; if finished, describe the decisive moment and what it means),
+  "keyMoments": string[] (2-4 short bullets of notable turning points, records, or storylines relevant to this match)
+}
+Base statements on plausible, well-known context. If the score is available, ground the recap in it. Do NOT invent specific unverifiable numbers. Keep it concise.`;
+
+    const user = `Sport: ${data.sport}
+${data.league ? `League: ${data.league}\n` : ""}Phase: ${phase}
+Status: ${data.status ?? ""}${data.detail ? ` (${data.detail})` : ""}
+${data.home.name} ${data.home.score ?? "-"}  vs  ${data.away.name} ${data.away.score ?? "-"}
+${data.note ? `Note: ${data.note}\n` : ""}
+Produce the live insight JSON.`;
+
+    const raw = await callGateway(system, user);
+    const parsed = safeJson<LiveInsight>(raw, {
+      recap: "",
+      excitement: "",
+      prediction: "",
+      keyMoments: [],
+    });
+    return {
+      recap: String(parsed.recap ?? ""),
+      excitement: String(parsed.excitement ?? ""),
+      prediction: String(parsed.prediction ?? ""),
+      keyMoments: Array.isArray(parsed.keyMoments)
+        ? parsed.keyMoments.slice(0, 6).map(String)
+        : [],
+    };
+  });
