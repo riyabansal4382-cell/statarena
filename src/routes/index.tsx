@@ -229,7 +229,7 @@ function Index() {
           />
         )}
 
-        {mode !== "live" && (
+        {mode !== "live" && mode !== "standings" && (
         <>
         <form onSubmit={submit} className="mx-auto max-w-2xl">
           <div ref={boxRef} className="relative flex gap-2">
