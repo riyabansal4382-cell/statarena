@@ -827,6 +827,7 @@ function PlayerDetail({ player }: { player: PlayerHit }) {
 
       <AiPanel hit={player} />
       <MajorWinsPanel player={player} />
+      <DeepStatsPanel hit={player} />
 
       <StatsCharts hit={player} />
 
