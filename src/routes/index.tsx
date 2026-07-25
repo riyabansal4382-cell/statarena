@@ -353,6 +353,8 @@ function Index() {
 
           {mode === "live" ? (
             <LiveScoresView sport={sport} />
+          ) : mode === "standings" ? (
+            <StandingsView sport={sport} />
           ) : mode === "explore" ? (
             selectedEvent ? (
               <EventDetail
