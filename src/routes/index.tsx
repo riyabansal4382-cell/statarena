@@ -675,6 +675,7 @@ function TeamDetail({ team }: { team: TeamHit }) {
       )}
 
       <AiPanel hit={team} />
+      <DeepStatsPanel hit={team} />
       <StatsCharts hit={team} />
 
       {sortedEvents.length > 0 && (
