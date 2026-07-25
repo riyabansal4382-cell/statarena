@@ -1744,14 +1744,14 @@ function F1GridPanel({ liveEvent }: { liveEvent?: LiveScore }) {
                       </td>
                       <td
                         className={`px-2 py-1.5 text-center tabular-nums ${
-                          d.change > 0
+                          (d.change ?? 0) > 0
                             ? "text-emerald-400"
-                            : d.change < 0
+                            : (d.change ?? 0) < 0
                               ? "text-red-400"
                               : "text-muted-foreground"
                         }`}
                       >
-                        {d.change > 0 ? `▲${d.change}` : d.change < 0 ? `▼${-d.change}` : "–"}
+                        {(d.change ?? 0) > 0 ? `▲${d.change}` : (d.change ?? 0) < 0 ? `▼${-(d.change ?? 0)}` : "–"}
                       </td>
                     </tr>
                   );
