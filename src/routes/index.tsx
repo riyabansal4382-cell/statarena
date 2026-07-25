@@ -179,8 +179,8 @@ function Index() {
           </p>
         </header>
 
-        <div className="mx-auto mb-6 flex w-fit rounded-full border border-border bg-card p-1">
-          {(["explore", "compare", "live"] as Mode[]).map((m) => (
+        <div className="mx-auto mb-6 flex w-fit flex-wrap justify-center rounded-full border border-border bg-card p-1">
+          {(["explore", "compare", "live", "standings"] as Mode[]).map((m) => (
             <button
               key={m}
               onClick={() => {
@@ -194,7 +194,7 @@ function Index() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {m === "compare" ? "⚔ Compare" : m === "live" ? "🔴 Live" : "🔎 Explore"}
+              {m === "compare" ? "⚔ Compare" : m === "live" ? "🔴 Live" : m === "standings" ? "📊 Standings" : "🔎 Explore"}
             </button>
           ))}
         </div>
