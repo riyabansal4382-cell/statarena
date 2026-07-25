@@ -30,6 +30,8 @@ import {
   majorWins,
   liveInsight,
   f1LiveGrid,
+  deepStats,
+  standings,
   type AiAnalysis,
   type Comparison,
   type EntityStats,
@@ -37,8 +39,17 @@ import {
   type MajorWins,
   type LiveInsight,
   type F1LiveGrid,
+  type DeepStats,
+  type Standings,
 } from "@/lib/ai.functions";
 import { getLiveScores, type LiveScore } from "@/lib/live.functions";
+
+const LEAGUES: Record<Sport, string[]> = {
+  Cricket: ["IPL 2025", "ICC Test Championship 2025-27", "ICC ODI Rankings 2026", "The Hundred 2025"],
+  Tennis: ["ATP Rankings 2026", "WTA Rankings 2026", "ATP Race to Turin 2026", "WTA Race 2026"],
+  F1: ["F1 Drivers' Championship 2026", "F1 Constructors' Championship 2026", "F1 Drivers' Championship 2025"],
+  Football: ["Premier League 2025-26", "La Liga 2025-26", "Serie A 2025-26", "UEFA Champions League 2025-26", "Bundesliga 2025-26"],
+};
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -68,7 +79,7 @@ const EVENT_SUGGESTIONS: Record<Sport, string[]> = {
 // Rough heuristic: does this query look like an event name?
 const EVENT_HINTS = /\b(cup|open|championship|series|league|grand prix|gp|final|test|masters|ashes|olympi|world|trophy|ipl|bbl|psl|t20|odi|slam|wimbledon|roland|20\d\d)\b/i;
 
-type Mode = "explore" | "compare" | "live";
+type Mode = "explore" | "compare" | "live" | "standings";
 
 function Index() {
   const [mode, setMode] = useState<Mode>("explore");
@@ -168,8 +179,8 @@ function Index() {
           </p>
         </header>
 
-        <div className="mx-auto mb-6 flex w-fit rounded-full border border-border bg-card p-1">
-          {(["explore", "compare", "live"] as Mode[]).map((m) => (
+        <div className="mx-auto mb-6 flex w-fit flex-wrap justify-center rounded-full border border-border bg-card p-1">
+          {(["explore", "compare", "live", "standings"] as Mode[]).map((m) => (
             <button
               key={m}
               onClick={() => {
@@ -183,7 +194,7 @@ function Index() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {m === "compare" ? "⚔ Compare" : m === "live" ? "🔴 Live" : "🔎 Explore"}
+              {m === "compare" ? "⚔ Compare" : m === "live" ? "🔴 Live" : m === "standings" ? "📊 Standings" : "🔎 Explore"}
             </button>
           ))}
         </div>
@@ -218,7 +229,7 @@ function Index() {
           />
         )}
 
-        {mode !== "live" && (
+        {mode !== "live" && mode !== "standings" && (
         <>
         <form onSubmit={submit} className="mx-auto max-w-2xl">
           <div ref={boxRef} className="relative flex gap-2">
@@ -342,6 +353,8 @@ function Index() {
 
           {mode === "live" ? (
             <LiveScoresView sport={sport} />
+          ) : mode === "standings" ? (
+            <StandingsView sport={sport} />
           ) : mode === "explore" ? (
             selectedEvent ? (
               <EventDetail
@@ -662,6 +675,7 @@ function TeamDetail({ team }: { team: TeamHit }) {
       )}
 
       <AiPanel hit={team} />
+      <DeepStatsPanel hit={team} />
       <StatsCharts hit={team} />
 
       {sortedEvents.length > 0 && (
@@ -813,6 +827,7 @@ function PlayerDetail({ player }: { player: PlayerHit }) {
 
       <AiPanel hit={player} />
       <MajorWinsPanel player={player} />
+      <DeepStatsPanel hit={player} />
 
       <StatsCharts hit={player} />
 
@@ -1733,14 +1748,14 @@ function F1GridPanel({ liveEvent }: { liveEvent?: LiveScore }) {
                       </td>
                       <td
                         className={`px-2 py-1.5 text-center tabular-nums ${
-                          d.change > 0
+                          (d.change ?? 0) > 0
                             ? "text-emerald-400"
-                            : d.change < 0
+                            : (d.change ?? 0) < 0
                               ? "text-red-400"
                               : "text-muted-foreground"
                         }`}
                       >
-                        {d.change > 0 ? `▲${d.change}` : d.change < 0 ? `▼${-d.change}` : "–"}
+                        {(d.change ?? 0) > 0 ? `▲${d.change}` : (d.change ?? 0) < 0 ? `▼${-(d.change ?? 0)}` : "–"}
                       </td>
                     </tr>
                   );
@@ -1770,6 +1785,250 @@ function F1GridPanel({ liveEvent }: { liveEvent?: LiveScore }) {
             <p className="mt-2 text-[10px] italic text-muted-foreground">{data.disclaimer}</p>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+// ---------- Deep sport-specific stats panel ----------
+
+const DEEP_CHART_COLORS = ["#FF3366", "#00CCFF", "#33FF99", "#FFCC00", "#CC99FF"];
+
+function DeepStatsPanel({ hit }: { hit: Hit }) {
+  const fetchDeep = useServerFn(deepStats);
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<DeepStats>({
+    queryKey: ["deep-stats", hit.kind, hit.id, hit.sport],
+    queryFn: () =>
+      fetchDeep({
+        data: {
+          kind: hit.kind,
+          name: hit.name,
+          sport: hit.sport,
+          team: hit.kind === "player" ? hit.team : undefined,
+          nationality: hit.kind === "player" ? hit.nationality : hit.country,
+          description: hit.description,
+        },
+      }),
+    staleTime: 5 * 60_000,
+  });
+
+  return (
+    <div className="mt-6 rounded-xl border border-border bg-background/40 p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          📊 Deep stats
+        </h3>
+        <button
+          onClick={() => refetch()}
+          className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/60"
+          disabled={isFetching}
+        >
+          {isFetching ? "…" : "Regenerate"}
+        </button>
+      </div>
+      {isLoading && <p className="text-sm text-muted-foreground">Compiling sport-specific stats…</p>}
+      {isError && <p className="text-sm text-destructive">Couldn't load deep stats.</p>}
+      {data?.headline && <p className="mb-3 text-sm text-foreground/90">{data.headline}</p>}
+      {data?.sections.map((s, i) => (
+        <div key={i} className="mb-5 last:mb-0">
+          <h4 className="mb-1 text-sm font-semibold">{s.title}</h4>
+          {s.description && (
+            <p className="mb-2 text-xs text-muted-foreground">{s.description}</p>
+          )}
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-max text-xs">
+              <thead className="bg-secondary/40 text-muted-foreground">
+                <tr>
+                  {s.columns.map((c, j) => (
+                    <th key={j} className="px-3 py-2 text-left font-semibold">{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {s.rows.map((r, j) => (
+                  <tr key={j} className="border-t border-border/60">
+                    {r.map((cell, k) => (
+                      <td key={k} className="px-3 py-1.5 tabular-nums">
+                        {typeof cell === "number" ? cell.toLocaleString() : cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {s.chart && s.chart.series.length > 0 && (
+            <div className="mt-3 rounded-lg border border-border bg-background/40 p-3">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                {s.chart.label} {s.chart.unit ? `(${s.chart.unit})` : ""}
+              </p>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={s.chart.series} margin={{ top: 8, right: 8, left: -12, bottom: 24 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis
+                      dataKey="label"
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fontSize: 10 }}
+                      interval={0}
+                      angle={-25}
+                      textAnchor="end"
+                      axisLine={{ stroke: "hsl(var(--muted-foreground))", opacity: 0.7 }}
+                      tickLine={{ stroke: "hsl(var(--muted-foreground))", opacity: 0.7 }}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fontSize: 10 }}
+                      axisLine={{ stroke: "hsl(var(--muted-foreground))", opacity: 0.7 }}
+                      tickLine={{ stroke: "hsl(var(--muted-foreground))", opacity: 0.7 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar
+                      dataKey="value"
+                      fill={DEEP_CHART_COLORS[i % DEEP_CHART_COLORS.length]}
+                      stroke="rgba(255,255,255,0.25)"
+                      strokeWidth={1}
+                      radius={[4, 4, 0, 0]}
+                      fillOpacity={0.85}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      {data?.notes && (
+        <p className="mt-2 text-[11px] italic text-muted-foreground">{data.notes}</p>
+      )}
+    </div>
+  );
+}
+
+// ---------- Standings view ----------
+
+function StandingsView({ sport }: { sport: Sport }) {
+  const presets = LEAGUES[sport];
+  const [league, setLeague] = useState<string>(presets[0]);
+  const [input, setInput] = useState<string>("");
+  const fetchStandings = useServerFn(standings);
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<Standings>({
+    queryKey: ["standings", sport, league],
+    queryFn: () => fetchStandings({ data: { sport, league } }),
+    staleTime: 5 * 60_000,
+  });
+
+  const applyInput = () => {
+    const v = input.trim();
+    if (v) setLeague(v);
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
+        {presets.map((p) => (
+          <button
+            key={p}
+            onClick={() => {
+              setLeague(p);
+              setInput("");
+            }}
+            className={`rounded-full border px-3 py-1 text-xs transition ${
+              league === p
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+      <div className="mx-auto mb-6 flex max-w-xl gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && applyInput()}
+          placeholder={`Or type any ${sport} league / competition…`}
+          className="flex-1 rounded-lg border border-border bg-card px-4 py-2 text-sm outline-none focus:border-primary"
+        />
+        <button
+          onClick={applyInput}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+        >
+          Load
+        </button>
+      </div>
+
+      {isLoading && (
+        <p className="text-center text-muted-foreground">Loading {league}…</p>
+      )}
+      {isError && <p className="text-center text-destructive">Couldn't load standings.</p>}
+
+      {data && (
+        <div className="rounded-xl border border-border bg-background/40 p-4">
+          <div className="mb-3 flex items-start justify-between gap-2">
+            <div>
+              <h3 className="text-lg font-bold">{data.title}</h3>
+              {data.subtitle && (
+                <p className="text-xs text-muted-foreground">{data.subtitle}</p>
+              )}
+            </div>
+            <button
+              onClick={() => refetch()}
+              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/60"
+              disabled={isFetching}
+            >
+              {isFetching ? "…" : "Refresh"}
+            </button>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-max text-xs">
+              <thead className="bg-secondary/40 text-muted-foreground">
+                <tr>
+                  <th className="px-2 py-2 text-left font-semibold">#</th>
+                  <th className="px-2 py-2 text-left font-semibold">Name</th>
+                  {data.columns.map((c, i) => (
+                    <th key={i} className="px-2 py-2 text-center font-semibold">{c}</th>
+                  ))}
+                  <th className="px-2 py-2 text-center font-semibold">Δ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((r) => {
+                  const ch = r.change ?? 0;
+                  return (
+                    <tr key={r.rank} className="border-t border-border/60 hover:bg-secondary/30">
+                      <td className="px-2 py-1.5 font-mono text-muted-foreground">{r.rank}</td>
+                      <td className="px-2 py-1.5 font-medium">{r.name}</td>
+                      {r.cells.map((c, i) => (
+                        <td key={i} className="px-2 py-1.5 text-center tabular-nums">
+                          {typeof c === "number" ? c.toLocaleString() : c}
+                        </td>
+                      ))}
+                      <td
+                        className={`px-2 py-1.5 text-center tabular-nums ${
+                          ch > 0 ? "text-emerald-400" : ch < 0 ? "text-red-400" : "text-muted-foreground"
+                        }`}
+                      >
+                        {ch > 0 ? `▲${ch}` : ch < 0 ? `▼${-ch}` : "–"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {data.notes && (
+            <p className="mt-3 text-[11px] italic text-muted-foreground">{data.notes}</p>
+          )}
+        </div>
       )}
     </div>
   );
