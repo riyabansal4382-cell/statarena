@@ -579,3 +579,199 @@ Produce the live grid snapshot with all 20 drivers.`;
       disclaimer: String(parsed.disclaimer ?? "AI-estimated snapshot; not real-time telemetry."),
     };
   });
+
+// ---------- Deep sport-specific stats & standings ----------
+
+export type DeepStatsChart = {
+  kind: "bar" | "radar";
+  label: string;
+  unit?: string;
+  series: { label: string; value: number }[];
+};
+export type StatTable = {
+  title: string;
+  description?: string;
+  columns: string[];
+  rows: (string | number)[][];
+  chart?: DeepStatsChart;
+};
+export type DeepStats = {
+  headline: string;
+  sections: StatTable[];
+  notes?: string;
+};
+
+export const deepStats = createServerFn({ method: "POST" })
+  .inputValidator((input: EntityInput) => {
+    if (!input?.name) throw new Error("name required");
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const sport = data.sport;
+    const sectionHint =
+      sport === "Cricket"
+        ? `For a player: (1) Batting stats table (columns: Format, Mat, Runs, Avg, SR, 100s, 50s) across Test/ODI/T20I/IPL. (2) Bowling stats table (columns: Format, Mat, Wkts, Avg, Econ, SR, Best) if bowler. (3) Wagon-wheel shot distribution (bar chart % by region: Cover, Point, Third-man, Fine-leg, Square-leg, Mid-wicket, Mid-on, Straight). (4) Current ICC rankings (Batting / Bowling / All-rounder — Test / ODI / T20I). Omit sections that don't apply.
+For a team: (1) Recent series record. (2) Format-wise win% (Test/ODI/T20I). (3) Top run-scorers & wicket-takers table.`
+        : sport === "Tennis"
+          ? `For a player: (1) Serve stats table (columns: Metric, Value, Tour avg — 1st serve %, 1st serve pts won %, 2nd serve pts won %, Aces/match, Double faults/match, Break pts saved %). (2) Return stats table (columns: Metric, Value — 1st serve return won %, 2nd serve return won %, Break pts converted %, Return games won %). (3) Surface record (columns: Surface, Matches, Win %, Titles) — Hard, Clay, Grass, Indoor. (4) Head-to-head vs top rivals (columns: Opponent, W, L, Last meeting).`
+          : sport === "F1" || sport === "Motorsport"
+            ? `For a driver: (1) 2026 season summary (columns: Metric, Value — Points, Wins, Podiums, Poles, Fastest laps, DNFs, Avg finish, Avg qual). (2) Qualifying pace vs teammate (bar chart: Δs per race weekend, positive = faster than teammate — cover current season race weekends). (3) Career championships & wins (columns: Season, Team, Wins, Podiums, Poles, Points, Championship). (4) Pit-stop average (columns: Season, Team, Avg pit-stop time (s), Fastest pit-stop). For a team: (1) Constructors' standings history. (2) Reliability (DNF %). (3) Pit-stop rankings.`
+            : sport === "Football" || sport === "Soccer"
+              ? `For a player: (1) Season stats table (columns: Season, Club, Comp, Apps, Goals, Assists, xG, xA, Mins). (2) Discipline (Yellow, Red, Fouls/90). (3) Shooting profile (bar chart: Shot conversion %, Big chances scored %, Shots/90, xG overperformance). (4) League ranking metrics (Goals rank in league, Assists rank).
+For a team: (1) League table position (columns: Season, League, Pos, P, W, D, L, GF, GA, GD, Pts, xG). (2) Top scorers this season. (3) xG/xGA (bar chart per recent matches).`
+              : `Produce 2-3 highly relevant stat tables + one chart for this sport.`;
+
+    const system = `You are a sports analyst producing detailed sport-specific stat tables. Return JSON only.
+${DATE_CONTEXT}
+Rules:
+- Only include sections that apply to this ${data.kind} in ${sport}. If a stat doesn't apply (e.g. bowling stats for a pure batter), omit that section.
+- Every row must have the same number of cells as columns. Numeric where natural, strings where categorical.
+- Prefer widely reported public figures. If uncertain, keep the row out — do not invent numbers.
+Schema: {
+  "headline": string (1 sentence framing),
+  "sections": [{
+    "title": string,
+    "description": string,
+    "columns": string[] (2-8),
+    "rows": (string|number)[][] (up to 12 rows, each length = columns.length),
+    "chart": { "kind": "bar"|"radar", "label": string, "unit": string, "series": [{"label": string, "value": number}] } (optional; include for wagon-wheel / qualifying pace / xG profile / shooting profile)
+  }] (2-4 sections),
+  "notes": string (optional caveat)
+}
+Section hint for this sport: ${sectionHint}`;
+
+    const user = `${data.kind}: ${data.name}
+Sport: ${sport}
+${data.team ? `Team: ${data.team}\n` : ""}${data.nationality ? `Nationality: ${data.nationality}\n` : ""}${data.description ? `Bio: ${data.description.slice(0, 1000)}\n` : ""}
+Produce the deep stats JSON as of ${CURRENT_DATE}.`;
+
+    const raw = await callGateway(system, user);
+    const parsed = safeJson<DeepStats>(raw, { headline: "", sections: [] });
+    const sections = Array.isArray(parsed.sections)
+      ? parsed.sections
+          .slice(0, 6)
+          .map((s) => {
+            const columns = Array.isArray(s.columns) ? s.columns.slice(0, 10).map(String) : [];
+            const rows = Array.isArray(s.rows)
+              ? s.rows
+                  .slice(0, 20)
+                  .map((r) =>
+                    Array.isArray(r)
+                      ? r.slice(0, columns.length).map((c) => (typeof c === "number" ? c : String(c ?? "")))
+                      : [],
+                  )
+                  .filter((r) => r.length === columns.length && columns.length > 0)
+              : [];
+            const chart = s.chart && Array.isArray(s.chart.series)
+              ? {
+                  kind: (s.chart.kind === "radar" ? "radar" : "bar") as "bar" | "radar",
+                  label: String(s.chart.label ?? ""),
+                  unit: s.chart.unit ? String(s.chart.unit) : undefined,
+                  series: s.chart.series
+                    .map((p) => ({ label: String(p.label ?? ""), value: Number(p.value) }))
+                    .filter((p) => p.label && Number.isFinite(p.value))
+                    .slice(0, 20),
+                }
+              : undefined;
+            return {
+              title: String(s.title ?? ""),
+              description: s.description ? String(s.description) : undefined,
+              columns,
+              rows,
+              chart,
+            };
+          })
+          .filter((s) => s.columns.length > 0 && s.rows.length > 0)
+      : [];
+    return {
+      headline: String(parsed.headline ?? ""),
+      sections,
+      notes: parsed.notes ? String(parsed.notes) : undefined,
+    };
+  });
+
+export type StandingsRow = {
+  rank: number;
+  name: string;
+  cells: (string | number)[];
+  change?: number; // +/- position change vs previous
+};
+export type Standings = {
+  title: string;
+  subtitle?: string;
+  columns: string[]; // labels for cells (excluding rank+name)
+  rows: StandingsRow[];
+  notes?: string;
+};
+
+type StandingsInput = { sport: string; league: string };
+
+export const standings = createServerFn({ method: "POST" })
+  .inputValidator((input: StandingsInput) => {
+    if (!input?.league?.trim()) throw new Error("league required");
+    return {
+      sport: (input.sport ?? "").slice(0, 40),
+      league: input.league.slice(0, 120).trim(),
+    };
+  })
+  .handler(async ({ data }) => {
+    const columnsHint =
+      data.sport === "Cricket"
+        ? `Points table columns: P, W, L, T/NR, NRR, Pts (or for Test league: Matches, Series won, PCT, Rating)`
+        : data.sport === "Tennis"
+          ? `Rankings columns: Points, Tournaments played, Prev rank`
+          : data.sport === "F1" || data.sport === "Motorsport"
+            ? `Drivers' standings columns: Team, Points, Wins, Podiums, Poles, DNFs. For constructors: Points, Wins, 1-2s, DNFs.`
+            : data.sport === "Football" || data.sport === "Soccer"
+              ? `League table columns: P, W, D, L, GF, GA, GD, Pts, Form (last 5)`
+              : `Points and record columns`;
+
+    const system = `You are a sports data provider. Return a standings table as JSON only.
+${DATE_CONTEXT}
+Return the MOST RECENT completed or in-progress standings for the requested league as of ${CURRENT_DATE}.
+Do NOT invent fictional teams/players — only real ones known to exist in that league. Include top 10-20 entries.
+${columnsHint}
+Schema: {
+  "title": string (canonical league name + season),
+  "subtitle": string (e.g. "As of July 2026" or "Final standings 2025"),
+  "columns": string[] (labels for each cell column, NOT including rank/name),
+  "rows": [{
+    "rank": number,
+    "name": string (team or driver + team),
+    "cells": (string|number)[] (same length as columns),
+    "change": number (positions moved vs previous update, 0 if unknown)
+  }] (up to 20, ordered by rank),
+  "notes": string (optional 1-sentence caveat)
+}`;
+
+    const user = `Sport: ${data.sport}
+League/Competition: ${data.league}
+Return the current standings table.`;
+
+    const raw = await callGateway(system, user);
+    const parsed = safeJson<Standings>(raw, {
+      title: data.league,
+      columns: [],
+      rows: [],
+    });
+    const columns = Array.isArray(parsed.columns) ? parsed.columns.slice(0, 12).map(String) : [];
+    return {
+      title: String(parsed.title ?? data.league),
+      subtitle: parsed.subtitle ? String(parsed.subtitle) : undefined,
+      columns,
+      rows: Array.isArray(parsed.rows)
+        ? parsed.rows
+            .slice(0, 24)
+            .map((r, i) => ({
+              rank: Number.isFinite(Number(r.rank)) ? Number(r.rank) : i + 1,
+              name: String(r.name ?? ""),
+              cells: Array.isArray(r.cells)
+                ? r.cells.slice(0, columns.length).map((c) => (typeof c === "number" ? c : String(c ?? "")))
+                : [],
+              change: Number.isFinite(Number(r.change)) ? Number(r.change) : 0,
+            }))
+            .filter((r) => r.name)
+        : [],
+      notes: parsed.notes ? String(parsed.notes) : undefined,
+    };
+  });
