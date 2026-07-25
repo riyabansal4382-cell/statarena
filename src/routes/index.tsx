@@ -30,6 +30,8 @@ import {
   majorWins,
   liveInsight,
   f1LiveGrid,
+  deepStats,
+  standings,
   type AiAnalysis,
   type Comparison,
   type EntityStats,
@@ -37,8 +39,17 @@ import {
   type MajorWins,
   type LiveInsight,
   type F1LiveGrid,
+  type DeepStats,
+  type Standings,
 } from "@/lib/ai.functions";
 import { getLiveScores, type LiveScore } from "@/lib/live.functions";
+
+const LEAGUES: Record<Sport, string[]> = {
+  Cricket: ["IPL 2025", "ICC Test Championship 2025-27", "ICC ODI Rankings 2026", "The Hundred 2025"],
+  Tennis: ["ATP Rankings 2026", "WTA Rankings 2026", "ATP Race to Turin 2026", "WTA Race 2026"],
+  F1: ["F1 Drivers' Championship 2026", "F1 Constructors' Championship 2026", "F1 Drivers' Championship 2025"],
+  Football: ["Premier League 2025-26", "La Liga 2025-26", "Serie A 2025-26", "UEFA Champions League 2025-26", "Bundesliga 2025-26"],
+};
 
 export const Route = createFileRoute("/")({
   component: Index,
