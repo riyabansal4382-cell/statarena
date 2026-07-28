@@ -95,6 +95,17 @@
   --sidebar-accent-foreground: oklch(0.97 0.01 100);
   --sidebar-border: oklch(0.3 0.03 260);
   --sidebar-ring: oklch(0.78 0.19 85);
+
+  /* Tier colors for achievement cards (dark mode defaults) */
+  --tier-legendary-text: oklch(0.85 0.1 90);
+  --tier-legendary-bg: oklch(0.85 0.1 90 / 0.1);
+  --tier-legendary-border: oklch(0.85 0.1 90 / 0.6);
+  --tier-major-text: oklch(0.75 0.1 240);
+  --tier-major-bg: oklch(0.75 0.1 240 / 0.1);
+  --tier-major-border: oklch(0.75 0.1 240 / 0.5);
+  --tier-notable-text: oklch(0.97 0.01 100 / 0.9);
+  --tier-notable-bg: oklch(0.28 0.03 260 / 0.4);
+  --tier-notable-border: oklch(0.3 0.03 260);
 }
 
 .light {
