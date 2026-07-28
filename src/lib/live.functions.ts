@@ -155,7 +155,7 @@ export const getLiveScores = createServerFn({ method: "GET" })
     const results = await Promise.all(
       paths.map(async (p) => {
         const evs = await fetchEspn(p);
-        return evs.map((e) => normalize(e, p.split("/")[1]?.toUpperCase() || data.sport));
+        return evs.flatMap((e) => normalizeEvent(e, p.split("/")[1]?.toUpperCase() || data.sport));
       }),
     );
     const all = results.flat();
