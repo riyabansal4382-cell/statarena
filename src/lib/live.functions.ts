@@ -18,7 +18,23 @@ export type LiveScore = {
 type EspnCompetitor = {
   homeAway?: string;
   score?: string;
+  winner?: boolean;
   team?: { displayName?: string; shortDisplayName?: string; abbreviation?: string; logo?: string };
+  athlete?: {
+    displayName?: string;
+    shortName?: string;
+    fullName?: string;
+    flag?: { href?: string };
+  };
+  linescores?: { value?: number }[];
+};
+
+type EspnCompetition = {
+  status?: {
+    type?: { description?: string; state?: string; shortDetail?: string; detail?: string };
+  };
+  competitors?: EspnCompetitor[];
+  notes?: { headline?: string; text?: string }[];
 };
 
 type EspnEvent = {
@@ -29,10 +45,8 @@ type EspnEvent = {
   status?: {
     type?: { description?: string; state?: string; shortDetail?: string; detail?: string };
   };
-  competitions?: {
-    competitors?: EspnCompetitor[];
-    notes?: { headline?: string }[];
-  }[];
+  competitions?: EspnCompetition[];
+  groupings?: { competitions?: EspnCompetition[] }[];
   links?: { href?: string }[];
 };
 
@@ -56,14 +70,48 @@ async function fetchEspn(path: string): Promise<EspnEvent[]> {
   }
 }
 
-function normalize(ev: EspnEvent, league: string): LiveScore {
-  const comp = ev.competitions?.[0];
-  const competitors = comp?.competitors ?? [];
+function competitorName(c: EspnCompetitor | undefined): string {
+  return (
+    c?.team?.displayName ??
+    c?.athlete?.displayName ??
+    c?.athlete?.fullName ??
+    c?.athlete?.shortName ??
+    "TBD"
+  );
+}
+
+function competitorShort(c: EspnCompetitor | undefined): string | undefined {
+  return (
+    c?.team?.shortDisplayName ??
+    c?.team?.abbreviation ??
+    c?.athlete?.shortName
+  );
+}
+
+function competitorScore(c: EspnCompetitor | undefined): string | undefined {
+  if (c?.score) return c.score;
+  const ls = c?.linescores;
+  if (ls && ls.length) return ls.map((s) => s.value ?? 0).join(" ");
+  return undefined;
+}
+
+function competitorLogo(c: EspnCompetitor | undefined): string | undefined {
+  return c?.team?.logo ?? c?.athlete?.flag?.href;
+}
+
+function normalizeCompetition(
+  ev: EspnEvent,
+  comp: EspnCompetition,
+  league: string,
+  idSuffix = "",
+): LiveScore {
+  const competitors = comp.competitors ?? [];
   const home = competitors.find((c) => c.homeAway === "home") ?? competitors[0];
   const away = competitors.find((c) => c.homeAway === "away") ?? competitors[1];
-  const type = ev.status?.type;
+  const type = comp.status?.type ?? ev.status?.type;
+  const noteRaw = comp.notes?.[0];
   return {
-    id: ev.id,
+    id: ev.id + idSuffix,
     league,
     status: type?.description ?? "",
     state: type?.state ?? "",
@@ -71,20 +119,30 @@ function normalize(ev: EspnEvent, league: string): LiveScore {
     detail: type?.detail,
     shortDetail: type?.shortDetail,
     home: {
-      name: home?.team?.displayName ?? "TBD",
-      short: home?.team?.shortDisplayName ?? home?.team?.abbreviation,
-      score: home?.score,
-      logo: home?.team?.logo,
+      name: competitorName(home),
+      short: competitorShort(home),
+      score: competitorScore(home),
+      logo: competitorLogo(home),
     },
     away: {
-      name: away?.team?.displayName ?? "TBD",
-      short: away?.team?.shortDisplayName ?? away?.team?.abbreviation,
-      score: away?.score,
-      logo: away?.team?.logo,
+      name: competitorName(away),
+      short: competitorShort(away),
+      score: competitorScore(away),
+      logo: competitorLogo(away),
     },
-    note: comp?.notes?.[0]?.headline,
+    note: noteRaw?.headline ?? noteRaw?.text,
     link: ev.links?.[0]?.href,
   };
+}
+
+function normalizeEvent(ev: EspnEvent, league: string): LiveScore[] {
+  const grouped = ev.groupings?.flatMap((g) => g.competitions ?? []) ?? [];
+  if (grouped.length) {
+    return grouped.map((c, i) => normalizeCompetition(ev, c, league, `-${i}`));
+  }
+  const comp = ev.competitions?.[0];
+  if (!comp) return [];
+  return [normalizeCompetition(ev, comp, league)];
 }
 
 export const getLiveScores = createServerFn({ method: "GET" })
@@ -97,7 +155,7 @@ export const getLiveScores = createServerFn({ method: "GET" })
     const results = await Promise.all(
       paths.map(async (p) => {
         const evs = await fetchEspn(p);
-        return evs.map((e) => normalize(e, p.split("/")[1]?.toUpperCase() || data.sport));
+        return evs.flatMap((e) => normalizeEvent(e, p.split("/")[1]?.toUpperCase() || data.sport));
       }),
     );
     const all = results.flat();
