@@ -707,9 +707,9 @@ function TeamDetail({ team }: { team: TeamHit }) {
 }
 
 const TIER_STYLE: Record<string, string> = {
-  legendary: "border-yellow-400/60 bg-yellow-400/10 text-yellow-200",
-  major: "border-sky-400/50 bg-sky-400/10 text-sky-200",
-  notable: "border-border bg-secondary/40 text-foreground/90",
+  legendary: "border-tier-legendary-border bg-tier-legendary-bg text-tier-legendary-text",
+  major: "border-tier-major-border bg-tier-major-bg text-tier-major-text",
+  notable: "border-tier-notable-border bg-tier-notable-bg text-tier-notable-text",
 };
 
 function MajorWinsPanel({ player }: { player: PlayerHit }) {
