@@ -59,6 +59,15 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-tier-legendary-text: var(--tier-legendary-text);
+  --color-tier-legendary-bg: var(--tier-legendary-bg);
+  --color-tier-legendary-border: var(--tier-legendary-border);
+  --color-tier-major-text: var(--tier-major-text);
+  --color-tier-major-bg: var(--tier-major-bg);
+  --color-tier-major-border: var(--tier-major-border);
+  --color-tier-notable-text: var(--tier-notable-text);
+  --color-tier-notable-bg: var(--tier-notable-bg);
+  --color-tier-notable-border: var(--tier-notable-border);
 }
 
 :root {
