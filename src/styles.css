@@ -59,6 +59,15 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-tier-legendary-text: var(--tier-legendary-text);
+  --color-tier-legendary-bg: var(--tier-legendary-bg);
+  --color-tier-legendary-border: var(--tier-legendary-border);
+  --color-tier-major-text: var(--tier-major-text);
+  --color-tier-major-bg: var(--tier-major-bg);
+  --color-tier-major-border: var(--tier-major-border);
+  --color-tier-notable-text: var(--tier-notable-text);
+  --color-tier-notable-bg: var(--tier-notable-bg);
+  --color-tier-notable-border: var(--tier-notable-border);
 }
 
 :root {
@@ -95,6 +104,17 @@
   --sidebar-accent-foreground: oklch(0.97 0.01 100);
   --sidebar-border: oklch(0.3 0.03 260);
   --sidebar-ring: oklch(0.78 0.19 85);
+
+  /* Tier colors for achievement cards (dark mode defaults) */
+  --tier-legendary-text: oklch(0.85 0.1 90);
+  --tier-legendary-bg: oklch(0.85 0.1 90 / 0.1);
+  --tier-legendary-border: oklch(0.85 0.1 90 / 0.6);
+  --tier-major-text: oklch(0.75 0.1 240);
+  --tier-major-bg: oklch(0.75 0.1 240 / 0.1);
+  --tier-major-border: oklch(0.75 0.1 240 / 0.5);
+  --tier-notable-text: oklch(0.97 0.01 100 / 0.9);
+  --tier-notable-bg: oklch(0.28 0.03 260 / 0.4);
+  --tier-notable-border: oklch(0.3 0.03 260);
 }
 
 .light {
@@ -130,6 +150,17 @@
   --sidebar-accent-foreground: oklch(0.2 0.02 260);
   --sidebar-border: oklch(0.9 0.01 260);
   --sidebar-ring: oklch(0.55 0.18 265);
+
+  /* Tier colors for achievement cards (light mode overrides) */
+  --tier-legendary-text: oklch(0.45 0.12 90);
+  --tier-legendary-bg: oklch(0.85 0.1 90 / 0.15);
+  --tier-legendary-border: oklch(0.7 0.12 90 / 0.6);
+  --tier-major-text: oklch(0.45 0.12 240);
+  --tier-major-bg: oklch(0.8 0.1 240 / 0.15);
+  --tier-major-border: oklch(0.65 0.12 240 / 0.5);
+  --tier-notable-text: oklch(0.2 0.02 260 / 0.9);
+  --tier-notable-bg: oklch(0.94 0.01 260 / 0.4);
+  --tier-notable-border: oklch(0.9 0.01 260);
 }
 
 .dark {
