@@ -77,11 +77,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "StatArena — Cricket, Tennis & F1 Tracker" },
-      { name: "description", content: "Search cricket teams, tennis players, and F1 drivers. Get history, achievements, recent form, and weaknesses in one place." },
+      { title: "StatArena — Cricket, Tennis, F1 & Football Tracker" },
+      { name: "description", content: "Search cricket teams, tennis players, F1 drivers, and football clubs. Get history, achievements, recent form, and weaknesses in one place." },
       { name: "author", content: "StatArena" },
-      { property: "og:title", content: "StatArena — Cricket, Tennis & F1 Tracker" },
-      { property: "og:description", content: "Search cricket teams, tennis players, and F1 drivers. History, achievements, form, and weaknesses." },
+      { property: "og:title", content: "StatArena — Cricket, Tennis, F1 & Football Tracker" },
+      { property: "og:description", content: "Search cricket teams, tennis players, F1 drivers, and football clubs. History, achievements, form, and weaknesses." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
@@ -92,6 +92,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+    ],
+    scripts: [
+      {
+        async: true,
+        src: "https://www.googletagmanager.com/gtag/js?id=G-94RQ5LQHD4",
+      },
+      {
+        children: `window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-94RQ5LQHD4');`,
+      },
     ],
   }),
   shellComponent: RootShell,
