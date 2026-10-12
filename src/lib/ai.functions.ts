@@ -301,6 +301,7 @@ ${data.team ? `Team: ${data.team}\n` : ""}${data.nationality ? `Nationality: ${d
           }))
         : [],
       notes: parsed.notes ? String(parsed.notes) : undefined,
+      source: "ai" as const,
     };
   });
 
@@ -702,6 +703,7 @@ export type Standings = {
   columns: string[]; // labels for cells (excluding rank+name)
   rows: StandingsRow[];
   notes?: string;
+  source?: "espn" | "ai";
 };
 
 type StandingsInput = { sport: string; league: string };
@@ -714,7 +716,9 @@ export const standings = createServerFn({ method: "POST" })
       league: input.league.slice(0, 120).trim(),
     };
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<Standings> => {
+    const real = await espnStandings(data.sport, data.league);
+    if (real) return real;
     const columnsHint =
       data.sport === "Cricket"
         ? `Points table columns: P, W, L, T/NR, NRR, Pts (or for Test league: Matches, Series won, PCT, Rating)`
@@ -775,3 +779,97 @@ Return the current standings table.`;
       notes: parsed.notes ? String(parsed.notes) : undefined,
     };
   });
+
+// ---------- Real standings from ESPN (where available) ----------
+function espnLeaguePath(sport: string, league: string): string | null {
+  const l = league.toLowerCase();
+  if (sport === "Football" || sport === "Soccer") {
+    if (l.includes("premier")) return "soccer/eng.1";
+    if (l.includes("la liga") || l.includes("laliga")) return "soccer/esp.1";
+    if (l.includes("serie a")) return "soccer/ita.1";
+    if (l.includes("bundesliga")) return "soccer/ger.1";
+    if (l.includes("ligue 1")) return "soccer/fra.1";
+    if (l.includes("champions league")) return "soccer/uefa.champions";
+    if (l.includes("mls")) return "soccer/usa.1";
+    if (l.includes("eredivisie")) return "soccer/ned.1";
+    return null;
+  }
+  if (sport === "F1" || sport === "Motorsport") {
+    if (l.includes("f1") || l.includes("formula")) return "racing/f1";
+  }
+  return null;
+}
+
+type EspnStat = { name?: string; abbreviation?: string; displayValue?: string };
+type EspnEntry = {
+  team?: { displayName?: string; name?: string };
+  athlete?: { displayName?: string };
+  stats?: EspnStat[];
+};
+
+async function espnStandings(sport: string, league: string): Promise<Standings | null> {
+  const path = espnLeaguePath(sport, league);
+  if (!path) return null;
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/v2/sports/${path}/standings`);
+    if (!res.ok) return null;
+    const d = (await res.json()) as {
+      name?: string;
+      children?: { name?: string; standings?: { seasonDisplayName?: string; entries?: EspnEntry[] } }[];
+    };
+    const children = d.children ?? [];
+    if (!children.length) return null;
+    const stat = (e: EspnEntry, n: string) => e.stats?.find((s) => s.name === n)?.displayValue ?? "";
+    if (path === "racing/f1") {
+      const wantConstructors = league.toLowerCase().includes("constructor");
+      const child =
+        children.find((c) => (c.name ?? "").toLowerCase().includes(wantConstructors ? "constructor" : "driver")) ??
+        children[0];
+      const entries = child.standings?.entries ?? [];
+      if (!entries.length) return null;
+      const rows = entries.map((e, i) => ({
+        rank: Number(stat(e, "rank")) || i + 1,
+        name: e.athlete?.displayName ?? e.team?.displayName ?? "",
+        cells: [stat(e, "championshipPts")],
+        change: 0,
+      }));
+      rows.sort((a, b) => a.rank - b.rank);
+      return {
+        title: `F1 ${child.name ?? "Standings"}`,
+        subtitle: "Current season · live from ESPN",
+        columns: ["Pts"],
+        rows: rows.filter((r) => r.name).slice(0, 24),
+        source: "espn",
+      };
+    }
+    // Football: may have multiple groups; flatten if one, otherwise use first table
+    const child = children[0];
+    const entries = child.standings?.entries ?? [];
+    if (!entries.length) return null;
+    const cols: [string, string][] = [
+      ["P", "gamesPlayed"], ["W", "wins"], ["D", "ties"], ["L", "losses"],
+      ["GF", "pointsFor"], ["GA", "pointsAgainst"], ["GD", "pointDifferential"], ["Pts", "points"],
+    ];
+    const rows = entries
+      .map((e, i) => ({
+        rank: Number(stat(e, "rank")) || i + 1,
+        name: e.team?.displayName ?? e.team?.name ?? "",
+        cells: cols.map(([, n]) => {
+          const v = stat(e, n);
+          const num = Number(v);
+          return v !== "" && Number.isFinite(num) && !v.startsWith("+") ? num : v;
+        }),
+        change: Number(stat(e, "rankChange")) || 0,
+      }))
+      .sort((a, b) => a.rank - b.rank);
+    return {
+      title: child.name ?? d.name ?? league,
+      subtitle: `${child.standings?.seasonDisplayName ?? "Current season"} · live from ESPN`,
+      columns: cols.map(([l]) => l),
+      rows: rows.filter((r) => r.name).slice(0, 36),
+      source: "espn",
+    };
+  } catch {
+    return null;
+  }
+}
