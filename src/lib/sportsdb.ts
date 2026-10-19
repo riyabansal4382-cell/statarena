@@ -1,7 +1,7 @@
-// TheSportsDB free API (test key "3" — public, no signup).
+// TheSportsDB free API (test key "123" — public, no signup).
 // Docs: https://www.thesportsdb.com/free_sports_api
 
-const BASE = "https://www.thesportsdb.com/api/v1/json/3";
+const BASE = "https://www.thesportsdb.com/api/v1/json/123";
 
 export type Sport = "Cricket" | "Tennis" | "F1" | "Football";
 
